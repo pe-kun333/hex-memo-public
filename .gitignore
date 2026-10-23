@@ -1,0 +1,27 @@
+node_modules/
+dist/
+dist-web/
+out/
+
+# 「別のメモアプリ」の起動ファイル（アプリ内で作るもの。各自のデータを指すので管理しない）
+*.cmd
+!六角メモ.cmd
+
+# Claude Code のローカルな作業ファイル
+.claude/scheduled_tasks.lock
+
+# デモ動画・モックの出力（scripts/demo/ で作るもの）
+demo-out/
+
+# release artifacts
+build/
+node_modules/
+dist/
+ui/dist/
+dist-web/
+release/
+*.zip
+*.bak
+.claude/
+CLAUDE.md
+HANDOFF.md

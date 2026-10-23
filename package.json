@@ -1,0 +1,20 @@
+{
+  "name": "hex-memo",
+  "productName": "六角メモ",
+  "version": "1.0.0",
+  "description": "無限のハニカムに想いを置く — 六角形のマスに書くデスクトップメモ",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:web": "node scripts/build-web.js",
+    "serve:web": "node scripts/build-web.js && node scripts/serve-web.js",
+    "demo:graph": "node scripts/build-web.js && node scripts/demo/graph-demo.js",
+    "demo:tour": "node scripts/build-web.js && node scripts/demo/tour-demo.js",
+    "demo:mocks": "node scripts/build-web.js && node scripts/demo/mocks.js",
+    "test": "node --test test/hex.test.js test/store.test.js test/settings.test.js test/boards.test.js test/apps.test.js test/clip.test.js test/urls.test.js test/attachments.test.js test/linkmeta.test.js test/bookmarks.test.js test/ribbon.test.js test/web.test.js test/send.test.js test/pocket.test.js test/sendbox.test.js test/merge.test.js test/voice.test.js test/graphkinds.test.js test/graph-lock.test.js test/graph-peek.test.js test/zoom.test.js test/review-fixes.test.js test/graph-max.test.js test/graph-panel-auto.test.js test/graph-max-hide.test.js test/graph-hover.test.js test/graph-zoom-cell.test.js test/hex-text-lines.test.js test/graph-open-menu.test.js test/graph-bundle.test.js test/graph-bundle-list.test.js test/graph-bundle-from-list.test.js test/graph-bundle-recenter.test.js test/overview-drag.test.js test/overview-peek-pin.test.js test/layout-hints.test.js test/overview-edit.test.js"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11"
+  }
+}

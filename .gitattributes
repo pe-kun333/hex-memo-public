@@ -1,0 +1,4 @@
+# 作業フォルダの改行を今のまま保つ（ソースは LF、Windows の起動ファイルは CRLF）
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.png binary

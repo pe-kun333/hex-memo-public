@@ -1,0 +1,1415 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: hm-att:; object-src 'none'; base-uri 'none'">
+  <meta name="color-scheme" content="dark">
+  <title>六角メモ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <button type="button" class="brand" id="appMenuBtn" aria-haspopup="menu" title="メモアプリのメニュー（新しいメモアプリを作る・ほかのメモアプリを開く）">
+        <span class="brand-mark" data-icon="hex"></span>
+        <span class="brand-title" id="appName">六角メモ</span>
+        <span class="brand-caret" data-icon="chevron"></span>
+      </button>
+      <div class="board-strip">
+        <div class="board-tabs" id="boardTabs" role="tablist" aria-label="ノート"></div>
+        <button type="button" class="board-add" id="boardAdd" data-icon="plus" title="新しいノート（Ctrl+T）" aria-label="新しいノート"></button>
+        <button type="button" class="board-hive-btn" id="boardHiveBtn" data-icon="hex" aria-pressed="false" title="ノートの題名を六角セルに並べて見る（もう一度で閉じる）" aria-label="ノートのハニカム"></button>
+      </div>
+      <span class="brand-tagline">無限のハニカムに想いを置く</span>
+      <div class="window-tools" data-desktop-only>
+        <button type="button" class="icon-btn window-btn" id="newWindowBtn" data-icon="windows" title="新しいウィンドウで開く（Ctrl+N）" aria-label="新しいウィンドウで開く"></button>
+        <button type="button" class="icon-btn window-btn" id="onTopBtn" data-icon="pin" aria-pressed="false" title="常に最前面に表示（Ctrl+Alt+T）" aria-label="常に最前面に表示"></button>
+        <button type="button" class="icon-btn window-btn" id="miniWindowBtn" data-icon="mini" title="小窓で複製：このウィンドウを、常に最前面・セル1個分ほどの小さなウィンドウで開く（今のマスを真ん中に）" aria-label="小窓で複製（常に最前面・セル1個分）"></button>
+      </div>
+    </header>
+    <!-- 小窓（セル1個分ほどの、常に最前面のウィンドウ）のときだけ：右上の小さなボタン -->
+    <div class="mini-bar" id="miniBar" role="toolbar" aria-label="小窓" hidden>
+      <button type="button" class="icon-btn" id="miniPin" data-icon="pin" aria-pressed="true" title="常に最前面をやめる" aria-label="常に最前面をやめる"></button>
+      <button type="button" class="icon-btn" id="miniExit" data-icon="expand" title="ふつうのウィンドウに戻す（大きさ・タブ・ツールバー）" aria-label="ふつうのウィンドウに戻す"></button>
+    </div>
+
+    <nav class="subbar">
+      <div class="tabs" role="tablist" aria-label="表示の切り替え">
+        <button type="button" class="tab" role="tab" data-tab="grid" aria-selected="true">ハニカム</button>
+        <button type="button" class="tab" role="tab" data-tab="like1" aria-selected="false">いいね ×1 <span class="tab-count" data-count="like1">(0)</span></button>
+        <button type="button" class="tab" role="tab" data-tab="like2" aria-selected="false">いいね ×2 <span class="tab-count" data-count="like2">(0)</span></button>
+        <button type="button" class="tab" role="tab" data-tab="like3" aria-selected="false">いいね ×3 <span class="tab-count" data-count="like3">(0)</span></button>
+        <button type="button" class="tab" role="tab" data-tab="bookmark" aria-selected="false">ブックマーク <span class="tab-count" data-count="bookmark">(0)</span></button>
+        <button type="button" class="tab tab-graph" role="tab" data-tab="graph" aria-selected="false" title="関連グラフ：関連線だけを取り出して、つながりで並べる見方">グラフ</button>
+      </div>
+      <div class="toolbar">
+        <span class="center-readout" title="画面中央のマスの座標">中心 <span id="centerCoord">0, 0</span></span>
+        <span class="save-status" id="saveStatus" data-state="saved" role="status">保存済み</span>
+        <div class="zoom-ctl" role="group" aria-label="表示倍率">
+          <button type="button" class="icon-btn zoom-btn" id="zoomOut" data-icon="minus" title="縮小（Ctrl+-／Ctrl+ホイール）" aria-label="縮小"></button>
+          <button type="button" class="zoom-label" id="zoomLabel" aria-haspopup="dialog" title="倍率の登録と固定（クリック）／100% に戻す：Ctrl+0">100%</button>
+          <button type="button" class="icon-btn zoom-btn" id="zoomIn" data-icon="plus" title="拡大（Ctrl++／Ctrl+ホイール）" aria-label="拡大"></button>
+          <button type="button" class="icon-btn zoom-btn tips-btn" id="tipsBtn" data-icon="comment" aria-pressed="false" aria-haspopup="dialog" title="縮小したときに、マスのコメント（または本文）の1行目を吹き出しで出す（押すと設定）" aria-label="1行の吹き出し"></button>
+        </div>
+        <button type="button" class="btn search-toggle" id="searchBtn" data-icon="search" aria-pressed="false" title="検索（Ctrl+F）：本文・コメント・#タグ をサイドバーで検索。タグで絞り込み・地図で分布を見る"><span class="btn-text">検索</span></button>
+        <button type="button" class="btn due-toggle" id="dueBtn" data-icon="clock" aria-pressed="false" title="期限の一覧（サイドバー）"><span class="btn-text">期限</span><span class="btn-badge"></span></button>
+        <button type="button" class="btn shelf-toggle" id="shelfBtn" data-icon="folder" aria-pressed="false" title="未配置の棚（場所をあとで決めるメモ）"><span class="btn-text">棚</span><span class="btn-badge"></span></button>
+        <button type="button" class="btn pocket-toggle" id="pocketBtn" data-icon="hexcopy" aria-pressed="false" title="区画（写しの作業台）：集めた写しを並べて考える（もう一度押すと閉じる）"><span class="btn-text">区画</span></button>
+        <button type="button" class="btn today-toggle" id="todayBtn" data-icon="star" aria-pressed="false" title="今日の1枚（見直すメモ）"><span class="btn-text">今日</span><span class="btn-badge"></span></button>
+        <button type="button" class="btn fp-toggle" id="fpBtn" data-icon="map" aria-pressed="false" title="足あとを表示（よく訪れるマスの明るさと道）"><span class="btn-text">足あと</span></button>
+        <button type="button" class="btn stats-toggle" id="statsBtn" data-icon="chart" aria-pressed="false" title="統計（サイドバー）：連続記録・日ごとの活動・よく訪れるマス"><span class="btn-text">統計</span></button>
+        <button type="button" class="btn select-toggle" id="selectBtn" data-icon="select" aria-pressed="false" title="複数選択：マスをクリック・なぞって選ぶ（もう一度で終わる）"><span class="btn-text">選択</span></button>
+        <button type="button" class="btn history-toggle" id="historyBtn" data-icon="clock" aria-pressed="false" title="このノートのメモの作成履歴をサイドバーに（Ctrl+H）"><span class="btn-text">履歴</span></button>
+        <button type="button" class="btn link-toggle" id="linkToggle" data-icon="link" aria-pressed="true" title="関連付けの線を隠す（Ctrl+Shift+L）"><span class="btn-text">関連線</span></button>
+        <button type="button" class="btn cover-toggle" id="coverToggle" data-icon="image" aria-pressed="true" title="表紙の画像を隠す"><span class="btn-text">表紙</span></button>
+        <button type="button" class="btn tool-compact" id="zoomFit" data-icon="fit" title="メモ全体が見えるように縮小（Shift+1）" aria-label="全体"><span class="btn-text">全体</span></button>
+        <button type="button" class="btn tool-compact" id="originBtn" data-icon="target" title="原点 (0, 0) へ移動（Home）" aria-label="原点へ"><span class="btn-text">原点へ</span></button>
+      </div>
+    </nav>
+
+    <main class="main">
+      <!-- 左のサイドバー：マスのコメント・周りのメモ（ボタンを右クリックで開く） -->
+      <aside class="side-panel" id="sidePanel" aria-label="メモの詳細" hidden>
+        <header class="side-head">
+          <button type="button" class="icon-btn side-back" id="sideBack" data-icon="arrow" title="前のメモに戻る" aria-label="前のメモに戻る" hidden></button>
+          <h2 class="side-title" id="sideTitle">メモの詳細</h2>
+          <button type="button" class="icon-btn" id="sideClose" data-icon="close" title="サイドバーを閉じる" aria-label="サイドバーを閉じる"></button>
+        </header>
+        <p class="side-gone" id="sideGone" hidden></p>
+        <div class="side-memo" id="sideMemo">
+          <div class="side-where" id="sideWhere"></div>
+          <blockquote class="post-quote side-quote" id="sideQuote"></blockquote>
+          <div class="side-memo-foot">
+            <span class="card-states" id="sideStates"></span>
+            <button type="button" class="btn side-go" id="sideGo" data-icon="arrow" title="ハニカムでこのメモのマスへ移動">マスへ移動</button>
+          </div>
+          <!-- タグ（× で外す・＋ で付ける） -->
+          <div class="side-tags" id="sideTags"></div>
+          <!-- 期限（六角形の印：クリックで辺を1つ・右クリックで一度に完了） -->
+          <div class="side-due" id="sideDue" hidden></div>
+        </div>
+        <div class="side-tabs" id="sideTabs" role="tablist" aria-label="表示する内容">
+          <button type="button" class="side-tab" role="tab" data-side-tab="comments" aria-selected="true" title="コメント">コメント<span class="side-tab-count" id="sideCommentCount"></span></button>
+          <button type="button" class="side-tab" role="tab" data-side-tab="layer" aria-selected="false" title="周りに書いたメモ">周り<span class="side-tab-count" id="sideLayerCount"></span></button>
+          <button type="button" class="side-tab" role="tab" data-side-tab="links" aria-selected="false" title="関連付けたメモ・同じページを含むメモ">関連<span class="side-tab-count" id="sideLinkCount"></span></button>
+          <button type="button" class="side-tab" role="tab" data-side-tab="images" aria-selected="false" title="添付した画像">画像<span class="side-tab-count" id="sideImageCount"></span></button>
+          <button type="button" class="side-tab" role="tab" data-side-tab="web" aria-selected="false" title="付けたリンク（サイトの URL）">リンク<span class="side-tab-count" id="sideWebCount"></span></button>
+        </div>
+        <div class="side-body" id="sideBody">
+          <div class="side-pane" id="sideComments" role="tabpanel">
+            <button type="button" class="btn side-copy-all" id="sideCopyAll" data-icon="copy" title="貼り付けると、選んだマスとその周りの空いているマスに1件ずつメモになります" hidden><span>すべてのコメントをコピー</span></button>
+            <ol class="thread side-thread" id="sideThread"></ol>
+            <p class="thread-empty" id="sideThreadEmpty">まだコメントはありません。</p>
+          </div>
+          <div class="side-pane" id="sideLayer" role="tabpanel" hidden>
+            <div class="side-pane-actions">
+              <button type="button" class="btn side-open-layer" id="sideOpenLayer" data-icon="hex">このメモを中心にしたハニカムを開く</button>
+              <button type="button" class="btn side-copy-all" id="sideCopyAllKids" data-icon="copy" title="貼り付けると、選んだマスとその周りの空いているマスに1件ずつ並びます（いいね・コメント・その周りのメモごと）" hidden><span>すべての周りのメモをコピー</span></button>
+            </div>
+            <ul class="side-list" id="sideLayerList"></ul>
+            <p class="thread-empty" id="sideLayerEmpty">まだ周りにメモはありません。</p>
+          </div>
+          <div class="side-pane" id="sideLinks" role="tabpanel" hidden>
+            <button type="button" class="btn side-link-graph" id="sideLinkGraph" data-icon="chart" title="このメモと関連線でつながるメモだけのグラフと、本文の一覧を開く" hidden>この関係線のグラフ</button>
+            <button type="button" class="btn side-new-link" id="sideNewLink" data-icon="link">このメモと関連付ける…</button>
+            <ul class="side-list" id="sideLinkList"></ul>
+            <p class="thread-empty" id="sideLinkEmpty">まだ関連付けはありません。</p>
+            <div class="side-auto side-suggest" id="sideSuggest" hidden>
+              <h3 class="side-day">つながりの候補（共通のタグ・言葉から）</h3>
+              <ul class="side-list" id="sideSuggestList"></ul>
+            </div>
+            <div class="side-auto" id="sideAuto" hidden>
+              <h3 class="side-day">同じページ（URL）を含むメモ（自動）</h3>
+              <ul class="side-list" id="sideAutoList"></ul>
+            </div>
+          </div>
+          <div class="side-pane" id="sideImages" role="tabpanel" hidden>
+            <div class="side-pane-actions">
+              <button type="button" class="btn" id="sideAddImage" data-icon="image">画像を添付…</button>
+              <div class="side-view-toggle" id="sideImageView" role="group" aria-label="画像の表示のしかた">
+                <button type="button" data-image-view="grid" aria-pressed="true" title="小さく並べる">並べる</button>
+                <button type="button" data-image-view="wide" aria-pressed="false" title="サイドバーの幅いっぱいに大きく表示">幅いっぱい</button>
+              </div>
+              <input type="file" id="sideImageInput" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+            </div>
+            <p class="side-hint">マスを選んで <kbd>Ctrl</kbd>+<kbd>V</kbd> で貼り付け、または画像ファイルをマスやここへドロップしても添付できます。</p>
+            <ul class="side-images" id="sideImageGrid"></ul>
+            <p class="thread-empty" id="sideImageEmpty">まだ画像はありません。</p>
+          </div>
+          <div class="side-pane" id="sideWeb" role="tabpanel" hidden>
+            <form class="side-url-form" id="sideUrlForm" autocomplete="off">
+              <input type="url" id="sideUrlInput" placeholder="URL を貼り付けて Enter" spellcheck="false" aria-label="付ける URL">
+              <button type="submit" class="btn" id="sideUrlAdd">追加</button>
+            </form>
+            <label class="side-check" data-desktop-only><input type="checkbox" id="sideFetchToggle" checked> リンク先の情報（タイトル・説明・画像）を取得する</label>
+            <div class="side-pane-actions">
+              <button type="button" class="btn" id="sideCheckLinks" data-icon="refresh" data-desktop-only><span>リンク切れを確認</span></button>
+            </div>
+            <ul class="side-webs" id="sideWebList"></ul>
+            <p class="thread-empty" id="sideWebEmpty">まだリンクはありません。マスを選んで URL を <kbd>Ctrl</kbd>+<kbd>V</kbd> で貼り付けても付けられます。</p>
+          </div>
+        </div>
+        <!-- いいね・ブックマークしたメモの一覧（いいね・ブックマークのボタンを右クリックで開く） -->
+        <div class="side-listview" id="sideListView" hidden>
+          <div class="side-list-head">
+            <!-- 検索：本文・コメント・#タグ。タグ・領域で絞り込み、並べ方を選び、地図（全体表示）で分布を見る -->
+            <div class="side-search-ctl" id="sideSearchCtl" hidden>
+              <!-- よく使う検索：押すとその条件で検索 -->
+              <div class="side-saved-search" id="sideSavedSearch">
+                <div class="side-saved-chips" id="sideSavedChips"></div>
+                <button type="button" class="btn small" id="sideSearchSave" data-icon="pin" title="今の検索語・タグ・並べ方・範囲・領域を名前を付けて保存">この検索を保存…</button>
+              </div>
+              <div class="side-saved-new" id="sideSavedNew" hidden>
+                <input type="text" id="sideSavedName" maxlength="40" spellcheck="false" placeholder="名前（例：仕事の未完了）" aria-label="保存する検索の名前">
+                <button type="button" class="btn small btn-primary" id="sideSavedOk">保存</button>
+                <button type="button" class="btn small" id="sideSavedCancel">やめる</button>
+              </div>
+              <form class="side-search-form" id="sideSearchForm" autocomplete="off">
+                <input type="search" id="sideSearchInput" placeholder="本文・コメント・#タグ を検索（空欄ですべて）" spellcheck="false" aria-label="検索語">
+              </form>
+              <div class="side-search-row">
+                <select id="sideSearchScope" aria-label="検索する範囲" title="検索する範囲">
+                  <option value="board">このノート</option>
+                  <option value="all">すべてのノート</option>
+                </select>
+                <select id="sideSearchSort" aria-label="並べ方" title="並べ方">
+                  <option value="relevance">一致の強い順</option>
+                  <option value="updated">更新の新しい順</option>
+                  <option value="created">作成の新しい順</option>
+                  <option value="tag">タグごと</option>
+                </select>
+              </div>
+              <div class="side-search-tags" id="sideSearchTags" role="group" aria-label="タグで絞り込む"></div>
+              <div class="side-search-regions" id="sideSearchRegions" role="group" aria-label="領域で絞り込む"></div>
+              <div class="side-search-acts">
+                <button type="button" class="btn" id="sideSearchMap" data-icon="map" aria-pressed="false" title="全体表示に切り替えて、当たったマスを色で（タグの色）、ほかを薄く見せる"><span>地図で見る</span></button>
+                <button type="button" class="btn" id="sideSearchAi" data-icon="tag" title="このノートのすべてのメモを AI（Claude・Grok など）に渡してタグを付けてもらい、結果を読み込む"><span>AI でタグ付け…</span></button>
+                <button type="button" class="btn" id="sideSearchTagSettings" title="タグの登録（名前・アイコン・色）">タグの登録…</button>
+              </div>
+            </div>
+            <!-- 期限：完了も見る・通知 -->
+            <div class="side-ctl" id="sideDueCtl" hidden>
+              <label class="side-check"><input type="checkbox" id="sideDueShowDone"> 完了も見る</label>
+              <div class="side-ctl-row">
+                <label class="side-check"><input type="checkbox" id="sideNotify"> 期限の通知</label>
+                <label class="side-check side-time">毎日 <input type="time" id="sideNotifyTime" step="60" aria-label="通知の時刻"></label>
+                <button type="button" class="btn small" id="sideNotifyTest">通知を試す</button>
+              </div>
+              <p class="side-hint" id="sideNotifyWeb" hidden></p>
+              <p class="side-hint">印はクリックで辺が1つ進み、6つで完了。右クリックで一度に完了、もう一度で全部消えます。</p>
+            </div>
+            <!-- 未配置の棚：書いて置く -->
+            <div class="side-ctl" id="sideShelfCtl" hidden>
+              <textarea id="shelfInput" rows="2" placeholder="場所をあとで決めるメモを書く…（Ctrl+Enter で棚に置く）" aria-label="棚に置くメモ" spellcheck="false"></textarea>
+              <div class="side-ctl-row">
+                <button type="button" class="btn small btn-primary" id="shelfAdd">棚に置く</button>
+                <button type="button" class="btn small" id="shelfVoice" title="音声で入力して棚に置く">🎤 音声で</button>
+                <span class="side-hint-inline">マスへドラッグ、または「置く」でマスをクリックして置きます。クイック入力の書く場所を「棚」にもできます</span>
+              </div>
+            </div>
+            <!-- 今日の1枚：枚数・対象・起動時・スライド・AI への依頼文 -->
+            <div class="side-ctl" id="sideTodayCtl" hidden>
+              <div class="side-ctl-row">
+                <label class="side-check">1日に <select id="todayCount" aria-label="1日に浮かび上がる枚数"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select> 枚</label>
+                <label class="side-check">対象 <select id="todaySource" aria-label="選ぶ対象">
+                  <option value="mixed">いいね・ブックマーク・古いメモを混ぜて</option>
+                  <option value="liked">いいねしたメモ</option>
+                  <option value="bookmarked">ブックマークしたメモ</option>
+                  <option value="old">しばらく前に書いたメモ</option>
+                  <option value="all">すべてのメモから</option>
+                </select></label>
+              </div>
+              <label class="side-check"><input type="checkbox" id="todayStartup"> 起動したとき（その日はじめて）に開く</label>
+              <div class="side-ctl-row">
+                <button type="button" class="btn small" id="todaySlides" data-icon="play" title="今日の分を、1枚ずつ大きく見る">スライドで見る</button>
+                <button type="button" class="btn small" id="todayReroll" data-icon="refresh" title="今日の分をすべて選び直す">全部選び直す</button>
+              </div>
+              <div class="side-ctl-row side-ai-row">
+                <button type="button" class="btn small" id="todayAi" data-icon="copy" title="今日の分の本文・場所・つながり・コメントと、分析の頼み方をまとめた文章をコピー（Claude・ChatGPT などに貼り付けて送る）"><span>今日の分を AI に分析してもらう（依頼文をコピー）</span></button>
+                <button type="button" class="btn small" id="todayAiPick" data-icon="copy" title="多めの候補と、その中から今日の分を選んでもらう頼み方をまとめた文章をコピー"><span>候補 <span id="todayAiN">20</span> 件から AI に選んでもらう（依頼文をコピー）</span></button>
+              </div>
+            </div>
+            <!-- ゴミ箱 -->
+            <div class="side-ctl" id="sideTrashCtl" hidden>
+              <div class="side-ctl-row">
+                <button type="button" class="btn small btn-danger" id="sideTrashEmpty">ゴミ箱を空にする…</button>
+                <span class="side-hint-inline">削除したメモは 30 日間ここに残ります。すぐ前の操作は Ctrl+Z でも元に戻せます</span>
+              </div>
+            </div>
+            <!-- Dendritic Extensions -->
+            <div class="side-ctl" id="sideDendCtl" hidden>
+              <button type="button" class="btn small btn-primary" id="sideDendNew" data-icon="plus">選んだマスから作る…</button>
+              <p class="side-hint">順路（Dendritic Extension）はメモの列です。選択モードで読む順にマスを選んで作り、途中から枝を伸ばせます。読書モードで順に読めます。</p>
+            </div>
+            <!-- 統計：足あとの表示・記録 -->
+            <div class="side-ctl" id="sideStatsCtl" hidden>
+              <div class="side-ctl-row">
+                <label class="side-check"><input type="checkbox" id="statsShow"> 足あとを表示</label>
+                <label class="side-check"><input type="checkbox" id="statsRecord"> 足あとを記録する</label>
+                <button type="button" class="btn small" id="statsClear">このノートの足あとを消す…</button>
+              </div>
+            </div>
+            <p class="side-list-sub" id="sideListSub"></p>
+            <div class="side-filter" id="sideFilter" role="group" aria-label="いいねの段階で絞り込む">
+              <button type="button" data-filter="0" aria-pressed="true">すべて</button>
+              <button type="button" data-filter="1" aria-pressed="false">×1</button>
+              <button type="button" data-filter="2" aria-pressed="false">×2</button>
+              <button type="button" data-filter="3" aria-pressed="false">×3</button>
+            </div>
+            <!-- 区画（写しの作業台）：帯の一言と絞り込み -->
+            <div class="side-ctl side-pocket-ctl" id="sidePocketCtl" hidden>
+              <!-- 区画の名前と色（押すと順路と同じ「名前と色」の小窓） -->
+              <button type="button" class="pocket-head" id="pocketHead" title="区画の名前と色を変える"><span class="pocket-head-dot" aria-hidden="true"></span><span class="pocket-head-name" id="pocketHeadName">区画</span></button>
+              <p class="pocket-band">ここにあるのは写しです。元のメモは変わりません（元へ戻るには紙片の ↩）</p>
+              <input type="search" id="sidePocketFilter" placeholder="絞り込み（本文・コメント・タグ）" spellcheck="false" autocomplete="off" aria-label="紙片を絞り込む">
+            </div>
+            <!-- メモの作成履歴：どのノート（ファイル）の履歴か・並べ方 -->
+            <div class="side-history-ctl" id="sideHistoryCtl" hidden>
+              <label class="side-history-board"><span>ノート</span><select id="sideHistoryBoard" aria-label="履歴を見るノート"></select></label>
+              <div class="side-filter" id="sideHistorySort" role="group" aria-label="並べ方">
+                <button type="button" data-sort="created" aria-pressed="true">作成順</button>
+                <button type="button" data-sort="updated" aria-pressed="false">更新順</button>
+              </div>
+            </div>
+          </div>
+          <div id="sideListItems"></div>
+          <button type="button" class="btn side-more" id="sideListMore" hidden></button>
+          <p class="thread-empty" id="sideListEmpty"></p>
+        </div>
+        <!-- 分けて貼り付けた文章の全文（選んでいるマスの部分を強調する） -->
+        <div class="side-seriesview" id="sideSeriesView" hidden>
+          <div class="side-series-head">
+            <p class="side-list-sub" id="sideSeriesSub"></p>
+            <div class="side-series-stats" id="sideSeriesStats" role="group" aria-label="いいね・コメントなどのある部分へ移動"></div>
+            <div class="side-series-bar" id="sideSeriesBar">
+              <button type="button" class="icon-btn" id="sideSeriesPrev" data-icon="left" title="前のマスへ" aria-label="前のマスへ"></button>
+              <span class="side-series-pos" id="sideSeriesPos" aria-live="polite"></span>
+              <button type="button" class="icon-btn" id="sideSeriesNext" data-icon="right" title="次のマスへ" aria-label="次のマスへ"></button>
+              <button type="button" class="btn side-series-copy" id="sideSeriesCopy" data-icon="copy" title="全文を1つの文章としてコピー（ほかのアプリにも貼り付けられます）">全文をコピー</button>
+            </div>
+          </div>
+          <div class="series-tabs" id="sideSeriesTabs" role="tablist" aria-label="全文と画像">
+            <button type="button" class="series-tab" role="tab" data-series-tab="text" aria-selected="true" title="分けて貼り付けた文章の全文">全文</button>
+            <button type="button" class="series-tab" role="tab" data-series-tab="images" aria-selected="false" title="文章のマスに添付した画像を、読む順に">画像<span class="side-tab-count" id="sideSeriesImageCount"></span></button>
+          </div>
+          <div class="side-series-text" id="sideSeriesText"></div>
+          <!-- 文章のマスの画像を、読む順（マスの番号順）に。今のマスの画像を強調する -->
+          <div class="side-series-images" id="sideSeriesImages" hidden></div>
+          <p class="thread-empty" id="sideSeriesEmpty" hidden>この文章のマスは見つかりません（削除されたか、別のノートにあります）。</p>
+        </div>
+        <div class="composer side-composer" id="sideComposer">
+          <div class="reply-to" id="sideReplyTo" hidden><span class="reply-to-text"></span><button type="button" class="icon-btn reply-to-cancel" data-icon="close" title="返信をやめる（ふつうのコメントにする）" aria-label="返信をやめる"></button></div>
+          <textarea id="sideInput" rows="2" placeholder="コメントを書く…" aria-label="コメント" spellcheck="false"></textarea>
+          <div class="composer-foot">
+            <span class="composer-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd>／<kbd>Shift</kbd>+<kbd>Enter</kbd> で投稿</span>
+            <span class="counter" id="sideCounter">0 / 280</span>
+            <button type="button" class="btn btn-primary" id="sidePost" disabled>投稿</button>
+          </div>
+        </div>
+      </aside>
+      <div class="viewport">
+        <section class="stage" id="stage" aria-label="ハニカム">
+          <div class="grid-bg" id="gridBg" hidden></div>
+          <div class="cells" id="cells"></div>
+          <!-- 画像の位置合わせ中の枠：中をドラッグで移動、四隅をドラッグで大きさ -->
+          <div class="combo-frame" id="comboFrame" hidden>
+            <span class="combo-handle" data-corner="nw"></span><span class="combo-handle" data-corner="ne"></span>
+            <span class="combo-handle" data-corner="sw"></span><span class="combo-handle" data-corner="se"></span>
+          </div>
+          <div class="ov-write" id="ovWrite" hidden>
+            <input type="text" id="ovWriteInput" maxlength="280" placeholder="一行で書く" spellcheck="false" autocomplete="off" aria-label="新しいメモ">
+            <span class="ov-write-hint"><kbd>Enter</kbd> 置く · <kbd>Esc</kbd> やめる</span>
+          </div>
+          <div class="ov-edit" id="ovEdit" hidden>
+            <textarea id="ovEditInput" rows="6" spellcheck="false" aria-label="メモ本文"></textarea>
+            <span class="ov-write-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> 保存 · <kbd>Enter</kbd> 改行 · <kbd>Esc</kbd> やめる</span>
+          </div>
+        </section>
+        <nav class="crumbs" id="crumbs" aria-label="階層" hidden></nav>
+        <!-- 画像とセルの組み合わせ（画像を組み合わせた階層にいるときだけ）：画像の切り替え・セルの濃さ・位置合わせ・隠す・外す -->
+        <div class="combo-bar" id="comboBar" role="toolbar" aria-label="画像とセルの組み合わせ" hidden>
+          <div class="combo-main">
+            <span class="combo-label" data-icon="combine" title="この階層は画像と組み合わせています：セルに書くと、画像のその場所へのメモになります"><span class="combo-name" id="comboName"></span></span>
+            <button type="button" class="icon-btn" id="comboPrev" data-icon="left" title="このメモの前の画像に替える" aria-label="前の画像に替える"></button>
+            <button type="button" class="icon-btn" id="comboNext" data-icon="right" title="このメモの次の画像に替える" aria-label="次の画像に替える"></button>
+            <div class="combo-fade" id="comboFade" role="group" aria-label="セルの濃さ" title="画像の上のセルの濃さ">
+              <button type="button" data-fade="full" title="セルをそのままの濃さで（空いたセルからは画像が見える）">そのまま</button>
+              <button type="button" data-fade="half" title="メモのセルを半透明に（画像が透けて見える）">半透明</button>
+              <button type="button" data-fade="faint" title="メモのセルをかなり薄く（マウスを乗せると元の濃さ）">薄く</button>
+            </div>
+            <button type="button" class="btn combo-btn" id="comboAdjustBtn" data-icon="move" title="画像の位置と大きさを合わせる"><span>位置合わせ</span></button>
+            <button type="button" class="icon-btn" id="comboShow" data-icon="eye" aria-pressed="true" title="画像を一時的に隠す（セルだけを見る）" aria-label="画像を一時的に隠す"></button>
+            <button type="button" class="icon-btn" id="comboFit" data-icon="fit" title="画像の全体が見えるように" aria-label="画像の全体を見る"></button>
+            <button type="button" class="icon-btn" id="comboView" data-icon="image" title="画像を窓で大きく見る" aria-label="画像を窓で見る"></button>
+            <button type="button" class="icon-btn combo-remove" id="comboRemove" data-icon="close" title="組み合わせを外す（画像とセルに書いたメモは残ります）" aria-label="組み合わせを外す"></button>
+          </div>
+          <div class="combo-adjust">
+            <span class="combo-label" data-icon="move"><span class="combo-hint">画像の中をドラッグで移動・四隅をドラッグで大きさ</span></span>
+            <button type="button" class="icon-btn" id="comboSmaller" data-icon="minus" title="小さく" aria-label="小さく"></button>
+            <span class="combo-size" id="comboSize"></span>
+            <button type="button" class="icon-btn" id="comboBigger" data-icon="plus" title="大きく" aria-label="大きく"></button>
+            <button type="button" class="btn combo-btn" id="comboCancel" title="位置合わせを始める前に戻す（Esc）">元に戻す</button>
+            <button type="button" class="btn btn-primary combo-btn" id="comboDone" title="位置合わせを終える（Enter）">完了</button>
+          </div>
+        </div>
+        <div class="link-banner" id="linkBanner" role="status" hidden>
+          <span class="link-banner-icon" data-icon="link"></span>
+          <span id="linkBannerText"></span>
+          <!-- 線の種類（色）とラベル：相手を選ぶ前に決めておける（1〜9 キーでも種類を選べる） -->
+          <div class="link-kinds" id="linkKinds" role="group" aria-label="関連線の種類"></div>
+          <!-- 新しいメモを置くとき、向きのある種類なら線の向きを選べる -->
+          <button type="button" class="btn link-dir" id="linkDir" hidden title="線の向きを入れ替える"></button>
+          <input type="text" class="link-label-input" id="linkLabelInput" placeholder="ラベル（任意）" maxlength="40" spellcheck="false" aria-label="関連線のラベル">
+          <button type="button" class="btn" id="linkCancel">やめる（Esc）</button>
+        </div>
+        <!-- 棚のメモを置くマスを選んでいる途中 -->
+        <div class="link-banner place-banner" id="placeBanner" role="status" hidden>
+          <span class="link-banner-icon" data-icon="folder"></span>
+          <span id="placeBannerText"></span>
+          <button type="button" class="btn" id="placeCancel">やめる（Esc）</button>
+        </div>
+        <!-- 検索・タグの地図：当たったマスを色で、ほかを薄く。色の凡例 -->
+        <div class="map-bar" id="mapBar" role="status" hidden>
+          <span class="map-bar-icon" data-icon="map"></span>
+          <span class="map-bar-text" id="mapBarText"></span>
+          <div class="map-legend" id="mapLegend"></div>
+          <button type="button" class="btn" id="mapClose">地図をやめる</button>
+        </div>
+        <section class="list-view" id="listView" aria-live="polite" hidden></section>
+        <!-- 関連グラフ：関連線だけを取り出して「つながり」で並べる見方 -->
+        <section class="graph-view" id="graphView" aria-label="関連グラフ" hidden>
+          <div class="graph-tools">
+            <!-- 関連のまとまりだけに絞ったとき（🔗 の右クリック →「この関係線のグラフ」） -->
+            <div class="graph-focus" id="graphFocus" hidden>
+              <span class="graph-focus-icon" data-icon="link"></span>
+              <span class="graph-focus-text" id="graphFocusText"></span>
+              <div class="seg" role="group" aria-label="たどる深さ">
+                <button type="button" data-gdepth="0" aria-pressed="true" title="線を次々にたどって届くメモすべて">すべてのつながり</button>
+                <button type="button" data-gdepth="1" aria-pressed="false" title="起点のメモと直接つながるメモだけ">直接の相手だけ</button>
+              </div>
+              <button type="button" class="btn small" id="graphFocusExit" data-icon="close" title="絞り込みをやめて、ふつうのグラフに戻す（Esc）">すべてのグラフに戻す</button>
+            </div>
+            <div class="kinds" id="graphKinds" role="group" aria-label="表示する種類"></div>
+            <div class="seg" id="graphScope" role="group" aria-label="範囲">
+              <button type="button" data-gscope="layer" aria-pressed="true" title="いま開いている階層のメモだけ">この階層</button>
+              <button type="button" data-gscope="all" aria-pressed="false" title="下の階層も含めたノート全体">ノート全体</button>
+            </div>
+            <div class="seg" role="group" aria-label="並べ方">
+              <button type="button" data-glayout="force" aria-pressed="true" title="つながりの強さで自然に並べる">力学</button>
+              <button type="button" data-glayout="flow" aria-pressed="false" title="向きのある線で層を作り、左から右へ">流れ（左→右）</button>
+              <button type="button" data-glayout="saved" aria-pressed="false" id="gSavedSeg" hidden title="保存した並び（丸を動かしても並べ直さない）">保存した並び</button>
+            </div>
+            <button type="button" class="btn small" id="gLayoutsBtn" data-icon="pin" title="今の並びを名前を付けて保存する・保存した並びを開く">並びを保存・開く</button>
+            <button type="button" class="btn small" id="gExportBtn" title="このグラフ（並びのまま）と一覧を、画像（PNG）・HTML・PDF に書き出す・印刷する">書き出す・印刷</button>
+            <label class="toggle"><input type="checkbox" id="gArrows" checked> 向き</label>
+            <label class="toggle"><input type="checkbox" id="gLabels" checked> ラベル</label>
+            <label class="toggle" id="gIsolatedWrap"><input type="checkbox" id="gIsolated"> 関連の無いメモも出す</label>
+            <button type="button" class="btn small" id="gHintBtn" aria-pressed="true" hidden title="AI が書いた配置のヒント（layoutHints）を、力学・流れの並べ方に使う（固定中・保存した並びを開いている間は使わない）">AI のヒント</button>
+            <button type="button" class="btn small" id="gHintClear" hidden title="ノートに書かれた配置のヒントを外す（Ctrl+Z で戻せる）">ヒントを外す</button>
+            <button type="button" class="btn small" id="gHintWrite" title="今のグラフの位置を、配置ヒントの pin（0〜1）に書き戻す。zone・group・rank・weight はそのまま（Ctrl+Z で戻せる）">ヒントに書き戻す</button>
+            <button type="button" class="btn small" id="gLockBtn" data-icon="lock" aria-pressed="false" title="グラフを固定する：一覧・概観でメモを押しても、画面も丸の並びも動かさない（パン・ホイール・『全体』は使えます）（F）">固定</button>
+            <button type="button" class="btn small" id="gFit" data-icon="fit">全体</button>
+            <button type="button" class="btn small" id="gPanelToggle" aria-pressed="true" title="右の欄（メモの一覧・概観）を出す／隠す">一覧・概観</button>
+            <button type="button" class="btn small" id="gMaxToggle" data-icon="expand" aria-pressed="false" title="グラフをこの窓いっぱいに広げる（M）">広域化</button>
+            <button type="button" class="btn small g-max-opts" id="gMaxOpts" aria-haspopup="menu" title="広域化したときに隠すもの" aria-label="広域化したときに隠すもの">▾</button>
+          </div>
+          <div class="graph-stage" id="graphStage">
+            <svg id="graphSvg" aria-label="関連グラフ"></svg>
+            <div class="link-banner graph-banner" id="graphLinkBar" hidden>
+              <span class="link-banner-icon" data-icon="link"></span>
+              <span id="graphLinkText"></span>
+              <div class="link-kinds" id="graphLinkKinds" role="group" aria-label="関連線の種類"></div>
+              <input type="text" class="link-label-input" id="graphLinkLabel" placeholder="ラベル（任意）" maxlength="40" spellcheck="false" aria-label="関連線のラベル">
+              <button type="button" class="btn" id="graphLinkCancel">やめる（Esc）</button>
+            </div>
+            <div class="graph-legend" id="graphLegend"></div>
+            <button type="button" class="graph-panel-open-tab" id="gPanelOpenTab" title="右の欄（一覧・概観）を開く" hidden>‹ 一覧</button>
+            <!-- 最大化中に道具の列を隠したときも、戻す・隠すものを選ぶボタンは左上に残す -->
+            <div class="g-max-float" id="gMaxFloat" hidden>
+              <button type="button" class="btn small" id="gMaxRestore" data-icon="expand" title="元の大きさに戻す（M・Esc）">元に戻す</button>
+              <button type="button" class="btn small" id="gMaxOptsFloat" aria-haspopup="menu" title="広域化したときに隠すもの" aria-label="広域化したときに隠すもの">▾</button>
+            </div>
+            <aside class="graph-panel" id="graphPanel" aria-label="一覧・概観">
+              <div class="graph-panel-head">
+                <div class="seg graph-panel-tabs" role="group" aria-label="右の欄">
+                  <button type="button" data-gpanel="list" aria-pressed="false" title="グラフのメモの本文を一覧で読む">一覧</button>
+                  <button type="button" data-gpanel="overview" aria-pressed="true" title="数と、根拠が集まるメモなど">概観</button>
+                </div>
+                <button type="button" class="icon-btn graph-panel-collapse" id="gPanelCollapse" title="右の欄をたたむ" aria-label="右の欄をたたむ">›</button>
+              </div>
+              <div class="graph-panel-body" id="graphPanelBody"></div>
+            </aside>
+            <div class="graph-hint">ノードをドラッグで動かす・背景をドラッグで移動・ホイールで拡大縮小（右上の倍率で固定中は移動）<br>クリックで詳細（サイドバー）、ダブルクリックでハニカムのそのマスへ、Alt+クリックで線を引き始める、線をクリックで種類・向き・ラベル・「固定」（F）で一覧を押しても画面が動かない</div>
+          </div>
+        </section>
+        <!-- 読書モード（分けて並べた文章を順に読む）：← → で前後、L・B・C で今のマスに いいね・ブックマーク・コメント、Esc で終わる -->
+        <div class="read-bar" id="readBar" role="toolbar" aria-label="読書モード" hidden>
+          <button type="button" class="icon-btn read-prev" id="readPrev" data-icon="arrow" title="前へ（←）" aria-label="前へ"></button>
+          <div class="read-info">
+            <div class="read-line"><span class="read-pos" id="readPos"></span><span class="read-title" id="readTitle"></span></div>
+            <div class="read-progress"><div id="readProgress"></div></div>
+          </div>
+          <div class="read-acts" id="readActs" role="group" aria-label="読んでいるマスに">
+            <button type="button" class="read-act read-like" id="readLike" data-icon="heart" data-like="0" aria-pressed="false" aria-label="いいね"><span class="read-act-n"></span></button>
+            <button type="button" class="read-act read-bookmark" id="readBookmark" data-icon="bookmark" aria-pressed="false" aria-label="ブックマーク"></button>
+            <button type="button" class="read-act read-comment" id="readComment" data-icon="comment" aria-label="コメント"><span class="read-act-n"></span></button>
+          </div>
+          <button type="button" class="icon-btn" id="readNext" data-icon="arrow" title="次へ（→・Space）" aria-label="次へ"></button>
+          <button type="button" class="btn read-exit" id="readExit">終わる（Esc）</button>
+        </div>
+        <!-- 複数選択したマス：件数と、読む・コピー・切り取り・削除・解除 -->
+        <div class="multi-bar" id="multiBar" role="toolbar" aria-label="選んだマス" hidden>
+          <span class="multi-count" id="multiCount"></span>
+          <span class="multi-hint" id="multiHint">マスをクリック・なぞって選ぶ</span>
+          <button type="button" class="btn multi-btn multi-read" data-multi="read" data-icon="play" title="選んだマスを、選んだ順に読書モードで読む">読む</button>
+          <button type="button" class="btn multi-btn" data-multi="copy" data-icon="copy" title="選んだマスをコピー（Ctrl+C）。貼り付けると並びを保って置く">コピー</button>
+          <button type="button" class="btn multi-btn" data-multi="send" data-icon="send" title="選んだマスの写しを、登録した送り先（ほかのノート・マス）の下へ送る">送る</button>
+          <button type="button" class="btn multi-btn" data-multi="pocket" data-icon="copy" title="選んだマスの写し（紙片）を、左のサイドバーの区画（写しの作業台）に選んだ順に入れる。元はそのまま">区画へ</button>
+          <button type="button" class="btn multi-btn" data-multi="region" data-icon="region" title="選んだマスの集まりに名前を付ける（領域）。全体表示でも枠と名前が見える">領域に名前</button>
+          <button type="button" class="btn multi-btn" data-multi="dend" data-icon="play" title="選んだマスを選んだ順の順路（Dendritic Extension）にする">Extension</button>
+          <button type="button" class="btn multi-btn" data-multi="tag-buttons" data-icon="tag" title="選んだマスに、タグボタンのセット（1〜6）でまとめてタグを付ける・外す（T）">タグ</button>
+          <button type="button" class="btn multi-btn" data-multi="shelve" data-icon="folder" title="選んだマスのメモを未配置の棚へ移す（マスは空く）">棚へ</button>
+          <button type="button" class="btn multi-btn" data-multi="tpl" data-icon="copy" title="選んだマスの並び・本文・タグ・コメント・関連線・領域を定型として登録（マスの右クリックから同じ形で貼れる）">定型に登録</button>
+          <button type="button" class="btn multi-btn" data-multi="cut" data-icon="scissors" title="選んだマスを切り取り（Ctrl+X）。貼り付けた場所へまとめて移動">切り取り</button>
+          <button type="button" class="btn multi-btn multi-delete" data-multi="delete" data-icon="trash" title="選んだマスを削除（Delete）">削除</button>
+          <button type="button" class="btn multi-btn multi-all" data-multi="all" title="この階層のメモをすべて選ぶ（Ctrl+A）">すべて</button>
+          <button type="button" class="btn multi-btn multi-done" data-multi="done" title="選ぶのを終える（Esc）。選んだ印は消える">完了</button>
+        </div>
+        <!-- ノートのハニカム：タブ（ノート）の題名を六角セルに並べて見る画面（タブの右の六角形のボタンで開く。区画（写しの作業台）とは別） -->
+        <section class="board-hive" id="boardHive" aria-label="ノートのハニカム" hidden>
+          <header class="hive-head">
+            <span class="hive-mark" data-icon="hex"></span>
+            <h2 class="hive-title">ノートのハニカム</h2>
+            <nav class="hive-crumbs" id="hiveCrumbs" aria-label="ノートの階層"></nav>
+            <span class="hive-hint">クリックでノートを開く・右クリックでノートの全体をサイドバーに・ドラッグで並べ替え・「子ノート」でその中へ（＋ で作る）・Esc で閉じる</span>
+            <button type="button" class="icon-btn" id="hiveClose" data-icon="close" title="閉じる（Esc）" aria-label="閉じる"></button>
+          </header>
+          <div class="hive-scroll" id="hiveScroll"><div class="hive-canvas" id="hiveCanvas"></div></div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="hints">
+      <span data-mouse-hint>クリックで編集（自動保存）</span>
+      <span data-mouse-hint><kbd>Esc</kbd> 編集終了</span>
+      <span data-mouse-hint>パン：ホイール／中ボタン／<kbd>Space</kbd>+ドラッグ</span>
+      <span data-mouse-hint>ドラッグで移動（縮小中も）・右クリックでコピー</span>
+      <span data-mouse-hint><kbd>Ctrl</kbd>+ホイール 拡大縮小</span>
+      <span data-mouse-hint><kbd>Home</kbd> 原点へ</span>
+      <span data-mouse-hint><kbd>Alt</kbd>+<kbd>↑</kbd> 上の階層へ</span>
+      <span data-mouse-hint><kbd>Ctrl</kbd>+<kbd>T</kbd> 新しいノート</span>
+      <!-- 指で操作する画面（iPad など）向け -->
+      <span data-touch-hint>タップで書く（自動保存）</span>
+      <span data-touch-hint>1本指でなぞって移動</span>
+      <span data-touch-hint>2本指で拡大・縮小</span>
+      <span data-touch-hint>長押しして離すとメニュー</span>
+      <span data-touch-hint>長押しのまま動かすとメモを移動</span>
+    </footer>
+  </div>
+
+  <!-- グラフの最大化で隠すもの（チェックしたものを隠す。このアプリで覚える） -->
+  <div class="menu g-max-menu" id="gMaxMenu" popover role="dialog" aria-label="広域化したときに隠すもの">
+    <div class="menu-head">広域化したときに隠すもの</div>
+    <div class="g-max-list" id="gMaxList"></div>
+    <div class="g-max-note">「元に戻す」ボタンは、いつも左上に残ります</div>
+  </div>
+  <div class="menu app-menu" id="appMenu" popover role="menu" aria-label="メモアプリのメニュー">
+    <div class="menu-head" id="appMenuHead"></div>
+    <button type="button" role="menuitem" data-cmd="new-window" data-desktop-only><span>このメモアプリを新しいウィンドウで開く</span><kbd>Ctrl+N</kbd></button>
+    <button type="button" role="menuitem" data-cmd="new-app" data-desktop-only><span>新しいメモアプリを作成…</span><kbd>Ctrl+Shift+N</kbd></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="quick-input"><span>クイック入力（空いたマスにすぐ書く）</span><kbd id="appMenuQuickKey"></kbd></button>
+    <button type="button" role="menuitem" data-cmd="quick-settings"><span>クイック入力の設定（キー・書く場所）…</span></button>
+    <button type="button" role="menuitem" data-cmd="capture" data-desktop-only><span>六角形スクショ（画面を六角形に切り取って棚へ）</span><kbd id="appMenuCaptureKey"></kbd></button>
+    <button type="button" role="menuitem" data-cmd="capture-settings" data-desktop-only><span>六角形スクショの設定（キー・大きさ・常駐）…</span></button>
+    <button type="button" role="menuitem" data-cmd="search"><span>検索（サイドバー）…</span><kbd>Ctrl+F</kbd></button>
+    <button type="button" role="menuitem" data-cmd="tag-settings"><span>タグの登録…</span></button>
+    <button type="button" role="menuitem" data-cmd="tag-sets"><span>タグボタンのセット（棚の右クリック）…</span></button>
+    <button type="button" role="menuitem" data-cmd="link-kinds"><span>関連線の種類…</span></button>
+    <button type="button" role="menuitem" data-cmd="templates"><span>定型の登録（マスの配置の型）…</span></button>
+    <button type="button" role="menuitem" data-cmd="due-list"><span>期限の一覧</span></button>
+    <button type="button" role="menuitem" data-cmd="shelf"><span>未配置の棚</span></button>
+    <button type="button" role="menuitem" data-cmd="today"><span>今日の1枚（見直すメモ）</span></button>
+    <button type="button" role="menuitem" data-cmd="voice"><span>音声で入力…</span><kbd>Ctrl+Shift+M</kbd></button>
+    <button type="button" role="menuitem" data-cmd="export"><span>画像・HTML で書き出す・印刷…</span></button>
+    <div class="menu-label">六角形の中の文字量（このアプリで覚える）</div>
+    <div class="text-lines-row" role="group" aria-label="グラフの文字量"><span class="text-lines-name">グラフの文字量</span>
+      <button type="button" role="menuitemradio" data-text-lines="graph" data-lines="1" aria-checked="false">1行</button><button type="button" role="menuitemradio" data-text-lines="graph" data-lines="2" aria-checked="true">2行</button><button type="button" role="menuitemradio" data-text-lines="graph" data-lines="3" aria-checked="false">3行</button></div>
+    <div class="text-lines-row" role="group" aria-label="ハニカムの文字量"><span class="text-lines-name">ハニカムの文字量</span>
+      <button type="button" role="menuitemradio" data-text-lines="honey" data-lines="1" aria-checked="false">1行</button><button type="button" role="menuitemradio" data-text-lines="honey" data-lines="2" aria-checked="false">2行</button><button type="button" role="menuitemradio" data-text-lines="honey" data-lines="3" aria-checked="false">3行</button><button type="button" role="menuitemradio" data-text-lines="honey" data-lines="6" aria-checked="true" title="今まで通り（6 行まで）">今まで通り</button></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="line-tips"><span>縮小したときの1行の吹き出し（コメント・本文）…</span></button>
+    <button type="button" role="menuitem" data-cmd="zoom-menu"><span>倍率の登録と固定…</span><kbd>Ctrl+Shift+1〜6</kbd></button>
+    <button type="button" role="menuitem" data-cmd="trash"><span>ゴミ箱（削除したメモ）</span><span class="menu-n"></span></button>
+    <button type="button" role="menuitem" data-cmd="undo"><span>元に戻す</span><kbd>Ctrl+Z</kbd></button>
+    <button type="button" role="menuitem" data-cmd="redo"><span>やり直す</span><kbd>Ctrl+Y</kbd></button>
+    <button type="button" role="menuitem" data-cmd="graph-open" id="appMenuGraph"><span id="appMenuGraphLabel">関係線のグラフを表示</span></button>
+    <button type="button" role="menuitem" data-cmd="dendrites"><span>Dendritic Extensions の一覧</span></button>
+    <button type="button" role="menuitem" data-cmd="stats"><span>足あとと統計</span></button>
+    <button type="button" role="menuitem" data-cmd="pocket"><span>区画（写しの作業台）</span></button>
+    <!-- ブラウザ版（iPad など）：書き出した zip を読み込む・書き出す -->
+    <button type="button" role="menuitem" data-cmd="import-data" data-web-only><span>データを読み込む（書き出した zip）…</span></button>
+    <hr data-desktop-only>
+    <div class="menu-label" data-desktop-only>ほかのメモアプリを開く</div>
+    <div class="menu-list" id="appMenuList" data-desktop-only></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="export-app"><span id="exportAppLabel">このメモアプリ全体を書き出す（iPad 用など）…</span></button>
+    <button type="button" role="menuitem" data-cmd="import-bookmarks" data-desktop-only><span>ブラウザのブックマークを読み込む…</span></button>
+    <button type="button" role="menuitem" data-cmd="sweep"><span>使われていない画像を片付ける</span></button>
+    <button type="button" role="menuitem" data-cmd="register-protocol" data-desktop-only><span>マスへのリンクをほかのアプリから開けるようにする…</span></button>
+    <hr data-desktop-only>
+    <button type="button" role="menuitem" data-cmd="data-folder" data-desktop-only><span>このアプリのデータフォルダを開く</span></button>
+  </div>
+  <input type="file" id="importDataInput" accept=".zip,application/zip" hidden>
+
+  <dialog class="dialog confirm-dialog" id="newAppDialog" aria-labelledby="newAppTitle">
+    <div class="dialog-body">
+      <h2 id="newAppTitle">新しいメモアプリを作成</h2>
+      <p>名前を付けると、アプリのフォルダに起動ファイルができます。ダブルクリックすると、今のメモとは別のデータで六角メモが開きます（ノートもメモも別々です）。</p>
+      <label class="field">
+        <span class="field-label">名前</span>
+        <input type="text" id="newAppName" maxlength="60" spellcheck="false" autocomplete="off" placeholder="例：仕事メモ">
+      </label>
+      <p class="field-hint" id="newAppFile"></p>
+      <p class="field-error" id="newAppError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="newAppCancel">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="newAppOk">作成して開く</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="menu" id="cellMenu" popover role="menu" aria-label="マスのメニュー">
+    <button type="button" role="menuitem" data-cmd="copy"><span>コピー</span><kbd>Ctrl+C</kbd></button>
+    <button type="button" role="menuitem" data-cmd="send"><span>コピーして送る…</span></button>
+    <button type="button" role="menuitem" data-cmd="cut"><span>切り取り（移動）</span><kbd>Ctrl+X</kbd></button>
+    <button type="button" role="menuitem" data-cmd="paste"><span>貼り付け</span><kbd>Ctrl+V</kbd></button>
+    <button type="button" role="menuitem" data-cmd="split-paste"><span>分けて貼り付け（長文を帯に並べる）</span><kbd>Ctrl+Shift+V</kbd></button>
+    <button type="button" role="menuitem" data-cmd="pocket"><span>区画に写す（写し。元はそのまま）</span></button>
+    <hr>
+    <div class="menu-label menu-tpl-label" id="cellMenuTplLabel">定型を貼る（このマスを基準に。重なるときは近くへ）</div>
+    <div class="menu-tpl" id="cellMenuTpl"></div>
+    <button type="button" role="menuitem" data-cmd="tpl-more"><span>定型の一覧・場所を選んで貼る…</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="tags"><span>タグを付ける…</span><kbd>Alt+1〜6</kbd></button>
+    <button type="button" role="menuitem" data-cmd="tag-buttons"><span>タグボタン（セットの 1〜6）…</span><kbd>T</kbd></button>
+    <button type="button" role="menuitem" data-cmd="voice"><span>音声で書く…</span></button>
+    <button type="button" role="menuitem" data-cmd="due"><span>期限を付ける…</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="graph-open" id="cellMenuGraph"><span>この関係線のグラフを表示</span></button>
+    <button type="button" role="menuitem" data-cmd="dend"><span>Dendritic Extension…</span></button>
+    <button type="button" role="menuitem" data-cmd="shelve"><span>棚へ移す（場所をあとで決める）</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="edit-here" hidden><span>ここで編集</span><kbd>Enter</kbd></button>
+    <button type="button" role="menuitem" data-cmd="link-from" hidden><span>ここから線</span></button>
+    <button type="button" role="menuitem" data-cmd="link"><span>関連付ける…（種類・ラベルも）</span><kbd>Ctrl+L</kbd></button>
+    <button type="button" role="menuitem" data-cmd="link-create"><span>関連付けのある新しいメモを作る…（置くマスを選ぶ）</span></button>
+    <button type="button" role="menuitem" data-cmd="links"><span>関連するメモ</span></button>
+    <button type="button" role="menuitem" data-cmd="region"><span>領域…</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="select"><span>複数選択（このマスから選ぶ）</span></button>
+    <button type="button" role="menuitem" data-cmd="side"><span>サイドバーで見る（コメント・周りのメモ）</span></button>
+    <button type="button" role="menuitem" data-cmd="attach-image"><span>画像を添付…</span></button>
+    <button type="button" role="menuitem" data-cmd="combine" hidden><span>画像と組み合わせる（画像の上のセルに書く）</span></button>
+    <button type="button" role="menuitem" data-cmd="add-url"><span>リンク（URL）を付ける…</span></button>
+    <button type="button" role="menuitem" data-cmd="copy-link"><span>このマスへのリンクをコピー</span></button>
+    <button type="button" role="menuitem" data-cmd="send-register"><span>このマスを送り先に登録（この下へ送れるように）</span></button>
+    <hr data-seq-only>
+    <button type="button" role="menuitem" data-cmd="series-side" data-seq-only><span>全文を左のサイドバーで見る</span></button>
+    <button type="button" role="menuitem" data-cmd="read" data-seq-only><span>ここから読む（読書モード）</span></button>
+    <button type="button" role="menuitem" data-cmd="read-resume" data-seq-only><span>続きから読む</span></button>
+    <button type="button" role="menuitem" data-cmd="delete-seq" data-seq-only class="is-danger"><span>この文章をまとめて削除…</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="delete" class="is-danger"><span>削除…</span><kbd>Delete</kbd></button>
+  </div>
+
+  <!-- コピーして送る：登録した送り先（ノートの原点・マス）の一覧。行を押すと送る、→ で送り先を開く、× で登録を外す -->
+  <div class="menu send-menu" id="sendMenu" popover role="menu" aria-label="コピーして送る">
+    <div class="menu-head" id="sendMenuHead"></div>
+    <div class="menu-list send-list" id="sendList"></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="add-target"><span>送り先を追加…</span></button>
+  </div>
+
+  <!-- 送り先を追加：ノートを選ぶ（もう一度で外す）か、マスへのリンクを貼り付ける -->
+  <dialog class="dialog confirm-dialog send-dialog" id="sendTargetDialog" aria-labelledby="sendTargetTitle">
+    <div class="dialog-body">
+      <h2 id="sendTargetTitle">送り先を追加</h2>
+      <p>マスの右クリック →「コピーして送る…」で、マスの写しを、ここで登録したノートの原点の下（またはマスの下）の、近い空いたマスに置けます。</p>
+      <div class="send-catalog" id="sendCatalog" aria-label="ノート"></div>
+      <label class="field send-link-field">
+        <span class="field-label">マスへのリンクで登録（そのマスの下へ送る）</span>
+        <span class="send-link-row"><input type="text" id="sendLinkInput" spellcheck="false" autocomplete="off" placeholder="hexmemo://memo/…"><button type="button" class="btn" id="sendLinkAdd">登録</button></span>
+      </label>
+      <p class="field-hint">送り先にしたいマスで、右クリック →「このマスへのリンクをコピー」したリンクを貼り付けます。マスの右クリック →「このマスを送り先に登録」でも登録できます。</p>
+      <p class="field-hint send-status" id="sendTargetStatus" role="status" hidden></p>
+      <p class="field-error" id="sendTargetError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="sendTargetClose">閉じる</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="menu" id="multiMenu" popover role="menu" aria-label="選んだマスのメニュー">
+    <button type="button" role="menuitem" data-multi="read-here"><span>ここから読む（選んだ順）</span></button>
+    <button type="button" role="menuitem" data-multi="read"><span>最初から読む</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-multi="copy"><span>選んだマスをコピー</span><kbd>Ctrl+C</kbd></button>
+    <button type="button" role="menuitem" data-multi="cut"><span>選んだマスを切り取り（移動）</span><kbd>Ctrl+X</kbd></button>
+    <button type="button" role="menuitem" data-multi="send"><span>選んだマスをコピーして送る…</span></button>
+    <button type="button" role="menuitem" data-multi="region"><span>選んだマスを領域にする（名前を付ける）…</span></button>
+    <button type="button" role="menuitem" data-multi="dend"><span>選んだマスを Dendritic Extension にする…</span></button>
+    <button type="button" role="menuitem" data-multi="tag-buttons"><span>選んだマスにタグボタンで付ける…</span><kbd>T</kbd></button>
+    <button type="button" role="menuitem" data-multi="export"><span>選んだマスを画像・HTML で書き出す・印刷…</span></button>
+    <button type="button" role="menuitem" data-multi="shelve"><span>選んだマスを棚へ移す</span></button>
+    <button type="button" role="menuitem" data-multi="tpl"><span>選んだマスを定型として登録…</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-multi="clear"><span>選択を解除</span><kbd>Esc</kbd></button>
+    <button type="button" role="menuitem" data-multi="delete" class="is-danger"><span>選んだマスを削除…</span><kbd>Delete</kbd></button>
+  </div>
+
+  <!-- 音声で入力：ブラウザの音声認識／録音して文字起こし（WAV 16kHz・変換ソフト・変換コマンド）／OS の音声入力 -->
+  <dialog class="dialog confirm-dialog voice-dialog" id="voiceDialog" aria-labelledby="voiceTitle">
+    <div class="dialog-body">
+      <h2 id="voiceTitle">音声で入力</h2>
+      <div class="voice-methods" role="radiogroup" aria-label="音声を文字にする方法">
+        <label class="voice-method"><input type="radio" name="voiceMethod" value="browser"> <span><b>ブラウザの音声認識</b>：話すとそのまま文字に</span></label>
+        <label class="voice-method"><input type="radio" name="voiceMethod" value="record"> <span><b>録音して文字起こし</b>：Whisper などの変換ソフトで（変換しやすい WAV・16kHz で保存）</span></label>
+        <label class="voice-method"><input type="radio" name="voiceMethod" value="os"> <span><b>OS の音声入力</b>：Windows・Mac・iPad の音声入力をそのまま使う</span></label>
+      </div>
+      <p class="voice-hint" id="voiceMethodHint"></p>
+      <div class="voice-rec">
+        <button type="button" class="btn btn-primary" id="voiceStart">● はじめる</button>
+        <button type="button" class="btn" id="voiceStop" disabled>■ 止める</button>
+        <span class="voice-level" aria-hidden="true"><span id="voiceLevel"></span></span>
+        <span class="voice-status" id="voiceStatus" role="status"></span>
+      </div>
+      <div class="voice-file" id="voiceFileRow" hidden>
+        <button type="button" class="btn small" id="voiceSaveWav" disabled title="16kHz・モノラル・16bit の WAV（Whisper などの変換ソフトがそのまま読める形）">録音を保存（WAV）…</button>
+        <button type="button" class="btn small" id="voiceImport" title="変換ソフトが書き出した文字起こし（.txt・.srt・.vtt・Whisper の .json）を読み込む">文字起こしを読み込む…</button>
+        <button type="button" class="btn small" id="voiceRunCmd" data-desktop-only disabled title="下の変換コマンドで、録音を文字起こしする">変換コマンドで文字起こし</button>
+      </div>
+      <details class="voice-cmd" id="voiceCmdBox" data-desktop-only>
+        <summary>変換コマンドの設定（デスクトップ版）</summary>
+        <input type="text" id="voiceCmd" spellcheck="false" autocomplete="off" placeholder='例：whisper "{file}" --language Japanese --model small --output_format txt --output_dir "{dir}"' aria-label="変換コマンド">
+        <p class="voice-hint">{file} は録音した WAV、{dir} はそのフォルダ、{base} は拡張子なしの名前、{lang} は言語（ja など）に置き換わります。結果は {dir} に書き出された .txt・.srt・.vtt・.json（無ければ画面に出た文字）を読みます。whisper.cpp なら：<code>whisper-cli -m "モデルのパス" -l {lang} -otxt -f "{file}"</code></p>
+        <label class="side-check"><input type="checkbox" id="voiceAuto"> 録音を止めたら、すぐ変換コマンドで文字起こしする</label>
+      </details>
+      <label class="field voice-text-field"><span class="field-label">文字（直せます）</span><textarea id="voiceText" rows="5" spellcheck="false" placeholder="ここに文字が入ります。直接書いたり、直したりもできます"></textarea></label>
+      <div class="voice-place" role="radiogroup" aria-label="書き込む先">
+        <span class="field-label">書き込む先</span>
+        <label><input type="radio" name="voicePlace" value="new"> 新しいメモ（選んでいるマスの近く）</label>
+        <label><input type="radio" name="voicePlace" value="append"> 選んでいるマスに書き足す</label>
+        <label><input type="radio" name="voicePlace" value="shelf"> 未配置の棚</label>
+      </div>
+      <p class="field-error" id="voiceError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="voiceCancel">閉じる</button>
+        <button type="button" class="btn btn-primary" id="voiceOk">書き込む</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 書き出す・印刷：領域・選んだマス・この階層・関係線のまとまりを、画像（PNG）・HTML・PDF・印刷に -->
+  <dialog class="dialog confirm-dialog export-dialog" id="exportDialog" aria-labelledby="exportTitle">
+    <div class="dialog-body">
+      <h2 id="exportTitle">画像・HTML で書き出す・印刷</h2>
+      <p class="export-what" id="exportWhat"></p>
+      <label class="field"><span class="field-label">題名</span><input type="text" id="exportName" maxlength="80" autocomplete="off" spellcheck="false"></label>
+      <div class="export-preview"><img id="exportImg" alt="書き出す図の見本"></div>
+      <div class="export-opts">
+        <div class="seg" role="group" aria-label="図の配色">
+          <button type="button" data-ex-theme="light" aria-pressed="true">明るい</button>
+          <button type="button" data-ex-theme="dark" aria-pressed="false">暗い</button>
+        </div>
+        <label class="side-check" id="exportEmptyWrap"><input type="checkbox" id="exportEmpty"> 領域の空いたマスも描く</label>
+        <label class="side-check"><input type="checkbox" id="exportList"> 本文の一覧を付ける（HTML・PDF・印刷）</label>
+        <label class="side-check"><input type="checkbox" id="exportComments"> コメントも</label>
+      </div>
+      <p class="voice-hint export-hint">図の番号は一覧の番号です。HTML は1つのファイルで、どのブラウザでも開けます（図のマスを押すと、一覧のそのメモへ）。印刷は明るい配色で、ブラウザでは印刷の画面から PDF にも保存できます。</p>
+      <p class="field-error" id="exportError" role="alert" hidden></p>
+      <div class="dialog-actions export-actions">
+        <button type="button" class="btn" id="exportCancel">閉じる</button>
+        <button type="button" class="btn" id="exportCopyImg">画像をコピー</button>
+        <button type="button" class="btn" id="exportPng">画像（PNG）…</button>
+        <button type="button" class="btn" id="exportHtml">HTML…</button>
+        <button type="button" class="btn" id="exportPdf" hidden>PDF…</button>
+        <button type="button" class="btn btn-primary" id="exportPrint">印刷…</button>
+      </div>
+    </div>
+  </dialog>
+  <!-- 印刷のときだけ見える場所（書き出す・印刷） -->
+  <div class="print-root" id="printRoot"></div>
+
+  <!-- スライド：メモを1枚ずつ大きく見せる（関係線のまとまりを近い順に・Dendritic Extension の順路） -->
+  <dialog class="slide-view" id="slideView" aria-labelledby="slideTitle">
+    <header class="slide-top">
+      <span class="slide-title" id="slideTitle"></span>
+      <span class="slide-pos" id="slidePos"></span>
+      <span class="slide-spacer"></span>
+      <button type="button" class="btn small" id="slidePlay" aria-pressed="false" title="決めた秒数ごとに次の1枚へ（P）">▶ 自動で進む</button>
+      <select class="slide-sec" id="slideSec" aria-label="1枚の秒数" title="自動で進むときの、1枚の秒数">
+        <option value="5">5 秒</option>
+        <option value="8" selected>8 秒</option>
+        <option value="12">12 秒</option>
+        <option value="20">20 秒</option>
+        <option value="30">30 秒</option>
+      </select>
+      <button type="button" class="btn small" id="slideOutlineBtn" aria-pressed="false" title="全体の一覧（O）">一覧</button>
+      <button type="button" class="btn small" id="slideJump" title="ハニカムのこのマスへ（Enter）">マスへ</button>
+      <button type="button" class="icon-btn slide-close" id="slideClose" data-icon="close" title="閉じる（Esc）" aria-label="閉じる"></button>
+    </header>
+    <div class="slide-body">
+      <ol class="slide-outline" id="slideOutline" hidden></ol>
+      <div class="slide-stage">
+        <button type="button" class="slide-nav" id="slidePrev" data-icon="left" title="前へ（←）" aria-label="前へ"></button>
+        <article class="slide-card" id="slideCard" tabindex="-1"></article>
+        <button type="button" class="slide-nav" id="slideNext" data-icon="right" title="次へ（→・Space）" aria-label="次へ"></button>
+      </div>
+    </div>
+    <div class="slide-foot"><div class="slide-progress"><div id="slideProgress"></div></div><span class="slide-hint">← → ・Space で前後、Home / End、O で一覧、P で自動で進む、1〜9 で枝を選ぶ、Enter でマスへ、Esc で閉じる</span></div>
+  </dialog>
+
+  <!-- 関連グラフの並び：名前を付けて保存・開く -->
+  <div class="menu graph-layout-menu" id="graphLayoutMenu" popover role="dialog" aria-label="グラフの並び">
+    <div class="menu-head" id="gLayoutHead"></div>
+    <div class="tag-menu-input"><input type="text" id="gLayoutName" placeholder="名前を付けて今の並びを保存（Enter）" maxlength="40" spellcheck="false" aria-label="並びの名前"><button type="button" class="btn" data-cmd="g-layout-save">保存</button></div>
+    <button type="button" role="menuitem" data-cmd="g-layout-overwrite" hidden><span id="gLayoutOverwriteText"></span></button>
+    <hr>
+    <div class="menu-label">保存した並び</div>
+    <div class="menu-list" id="gLayoutList"></div>
+    <p class="menu-empty" id="gLayoutEmpty">まだありません。丸を動かして整えたら、名前を付けて保存できます。</p>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="g-layout-off"><span>保存した並びを閉じる（力学で並べ直す）</span></button>
+  </div>
+
+  <!-- 関連グラフのノード（六角形）の右クリック：コメント・本文・関連線でつながる新しいメモ -->
+  <div class="menu graph-node-menu" id="graphNodeMenu" popover role="dialog" aria-label="グラフのメモ">
+    <div class="menu-head" id="graphNodeHead"></div>
+    <button type="button" role="menuitem" data-cmd="g-comment"><span>コメントを書く（サイドバー）</span><span class="menu-n" id="graphNodeComments"></span></button>
+    <button type="button" role="menuitem" data-cmd="g-edit"><span>本文を書き足す・直す（右の一覧）</span></button>
+    <button type="button" role="menuitem" data-cmd="g-zoom" title="このメモの六角形を真ん中に、押すたびに 3 段で大きく表示する（グラフの見え方を変えるだけ）"><span id="gZoomCellLabel">このセルを拡大表示（1/3）</span></button>
+    <button type="button" role="menuitem" data-cmd="g-bundle" title="このメモと、関連線でつながるメモ（1 段目）を、まとめてカードで開く"><span>まわりのメモをまとめて開く</span></button>
+    <button type="button" role="menuitem" data-cmd="g-zoom-back" id="gZoomBack" title="拡大表示する前の見え方に戻す" disabled><span>拡大表示を戻す</span></button>
+    <hr>
+    <div class="menu-label">関連線でつながる新しいメモを作る</div>
+    <div class="g-new">
+      <textarea id="gNewText" rows="2" placeholder="新しいメモの本文（Ctrl+Enter で作る）" spellcheck="false" aria-label="新しいメモの本文"></textarea>
+      <div class="link-kinds g-new-kinds" id="gNewKinds" role="group" aria-label="関連線の種類"></div>
+      <div class="g-new-row">
+        <button type="button" class="btn small g-new-dir" id="gNewDir" title="線の向きを入れ替える（向きのある種類のとき）"></button>
+        <input type="text" id="gNewLabel" placeholder="線のラベル（任意）" maxlength="40" spellcheck="false" aria-label="関連線のラベル">
+        <button type="button" class="btn small btn-primary" id="gNewMake" disabled>作る</button>
+      </div>
+      <p class="g-new-where" id="gNewWhere"></p>
+      <label class="g-new-chain">作ったあと：<select id="gNewChain" aria-label="作ったあと">
+        <option value="">メニューを閉じる</option>
+        <option value="next">作ったメモから続けて作る</option>
+        <option value="same">同じメモからもう1つ作る</option>
+      </select></label>
+    </div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="g-link"><span>ほかのメモと関連付ける…</span><kbd>Alt+クリック</kbd></button>
+    <button type="button" role="menuitem" data-cmd="g-read"><span>一覧の順に、ここから読む（スライド）</span></button>
+    <button type="button" role="menuitem" data-cmd="g-focus"><span>このメモを起点にする（この関係線のグラフ）</span></button>
+    <button type="button" role="menuitem" data-cmd="g-jump"><span>ハニカムのこのマスへ</span><kbd>ダブルクリック</kbd></button>
+  </div>
+
+  <!-- 関連グラフの右の一覧・概観：線の印・行にマウスを重ねたときの、相手のメモの全文（右クリック・長押しで止めて読める）。
+       popover="manual"（ほかのメニューを閉じない）・class "menu" は付けない（出ている間、全体の Esc の判定に当たらないように） -->
+  <div class="g-peek" id="graphPeek" popover="manual" role="tooltip" tabindex="-1" aria-live="off"></div>
+  <!-- グラフのノードに重ねたときのカード（題名・本文の抜き出し。倍率に関係なく同じ大きさ） -->
+  <div class="g-hover-card" id="graphHoverCard" popover="manual" role="tooltip" aria-live="off"></div>
+  <div class="g-bundle" id="graphBundle" popover="manual" role="dialog" aria-label="つながりの束（まわりのメモ）"></div>
+  <!-- 束のまわりのカードの右クリック（長押し）：そのメモを真ん中に・そのメモの線の印。popover="manual"・class "menu" は付けない（束を閉じない・Esc は自分で受ける） -->
+  <div class="g-bundle-menu" id="graphBundleMenu" popover="manual" role="dialog" aria-label="このメモから束をたどる"></div>
+
+  <div class="menu link-menu" id="linkMenu" popover role="menu" aria-label="関連するメモ">
+    <div class="menu-head" id="linkMenuHead"></div>
+    <div class="menu-list" id="linkList"></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="link-graph"><span>この関係線のグラフ（本文の一覧つき）</span></button>
+    <button type="button" role="menuitem" data-cmd="link-new"><span>新しく関連付ける…</span><kbd>Ctrl+L</kbd></button>
+  </div>
+
+  <!-- 区画（写しの作業台）：元のマスの印（二重の六角形）を押したとき。区画の紙片の一覧と「区画にもう1枚写す」 -->
+  <div class="menu link-menu" id="copyMenu" popover role="menu" aria-label="区画の写し">
+    <div class="menu-head" id="copyMenuHead"></div>
+    <div class="menu-list" id="copyList"></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="copy-more"><span>区画にもう1枚写す</span></button>
+  </div>
+
+  <div class="menu" id="commentMenu" popover role="menu" aria-label="コメントのメニュー">
+    <button type="button" role="menuitem" data-cmd="copy"><span>コピー（マスに貼り付けるとメモに）</span><kbd>Ctrl+C</kbd></button>
+    <button type="button" role="menuitem" data-cmd="copy-all"><span>すべてのコメントをコピー</span></button>
+    <button type="button" role="menuitem" data-cmd="copy-text" hidden><span>選んだ文字をコピー（文字だけ）</span></button>
+    <button type="button" role="menuitem" data-cmd="pocket"><span>区画に写す（写し。元はそのまま）</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="delete" class="is-danger"><span>このコメントを削除…</span></button>
+  </div>
+
+  <!-- 縮小したときの1行の吹き出し（ツールバーの「1行」） -->
+  <div class="menu tips-menu" id="tipsMenu" popover role="dialog" aria-labelledby="tipsMenuTitle">
+    <div class="tips-head">
+      <strong id="tipsMenuTitle">1行の吹き出し</strong>
+      <span>マウスを重ねなくても、マスのコメント（または本文）の1行目を見せます。吹き出しどうしが重ならない場所を探して出します。</span>
+    </div>
+    <div class="tips-row">
+      <span class="tips-label">出すもの</span>
+      <div class="seg" role="group" aria-label="出すもの">
+        <button type="button" data-tips-show="off">出さない</button>
+        <button type="button" data-tips-show="comment-new" title="いちばん新しいコメントの1行目">コメント（新しい）</button>
+        <button type="button" data-tips-show="comment-old" title="最初に書いたコメントの1行目">コメント（最初）</button>
+        <button type="button" data-tips-show="text" title="メモの本文の1行目">本文</button>
+      </div>
+    </div>
+    <div class="tips-row tips-sub">
+      <span class="tips-label">出すとき</span>
+      <div class="seg" role="group" aria-label="出すとき">
+        <button type="button" data-tips-when="overview" title="50% 未満（メモのあるマスだけを描く全体表示）">50% 未満</button>
+        <button type="button" data-tips-when="small" title="100% より小さく表示しているとき">100% 未満</button>
+        <button type="button" data-tips-when="always">いつも</button>
+      </div>
+    </div>
+    <div class="tips-row tips-sub">
+      <span class="tips-label">重なるとき</span>
+      <div class="seg" role="group" aria-label="重なるとき">
+        <button type="button" data-tips-overlap="avoid" title="ほかの吹き出しに重なるものは出さない（拡大すると出てきます）">隠す</button>
+        <button type="button" data-tips-overlap="dim" title="重なりがいちばん少ない場所に、薄くして出す">薄くして出す</button>
+      </div>
+    </div>
+    <div class="tips-row tips-sub">
+      <span class="tips-label">長さ</span>
+      <div class="seg" role="group" aria-label="長さ">
+        <button type="button" data-tips-len="0" title="マスの大きさに合わせて切る（小さく表示するほど短く）">自動</button>
+        <button type="button" data-tips-len="12">12 字</button>
+        <button type="button" data-tips-len="20">20 字</button>
+        <button type="button" data-tips-len="32">32 字</button>
+      </div>
+    </div>
+    <p class="tips-status" id="tipsStatus" role="status"></p>
+  </div>
+
+  <!-- 表示倍率の登録と固定（右上の倍率を押す）。ハニカムではハニカム、グラフのタブではグラフの倍率 -->
+  <div class="menu zoom-menu" id="zoomMenu" popover role="dialog" aria-labelledby="zoomMenuTitle">
+    <div class="tips-head">
+      <strong id="zoomMenuTitle">表示倍率</strong>
+      <span>よく使う倍率を6つ登録しておけます。固定すると、ホイール・ピンチ・＋－・ジャンプでも倍率が変わりません。</span>
+    </div>
+    <p class="zoom-target" id="zoomMenuTarget">ハニカムの倍率（4%〜150%）</p>
+    <div class="seg zoom-presets" role="group" aria-label="登録した倍率（Ctrl+Shift+1〜6）">
+      <button type="button" data-zoom-preset="0" aria-pressed="false">25%</button>
+      <button type="button" data-zoom-preset="1" aria-pressed="false">50%</button>
+      <button type="button" data-zoom-preset="2" aria-pressed="false">75%</button>
+      <button type="button" data-zoom-preset="3" aria-pressed="false">100%</button>
+      <button type="button" data-zoom-preset="4" aria-pressed="false">125%</button>
+      <button type="button" data-zoom-preset="5" aria-pressed="false">150%</button>
+    </div>
+    <label class="toggle zoom-lock"><input type="checkbox" id="zoomLock"> この倍率で固定する</label>
+    <label class="toggle zoom-lock"><input type="checkbox" id="overviewViewOnly"> 全体表示は見るだけ</label>
+    <p class="zoom-status" id="overviewViewOnlyHint">切（既定）のときは、50% 未満でも区画の紙片（写し）と棚のメモをハニカムへ置け、空いたマスをクリックすると一行で書け、メモのあるマスはダブルクリックで本文を直せ、メモから関連線を引けます。入にすると、その操作を止めます。</p>
+    <p class="zoom-status" id="zoomMenuStatus" role="status"></p>
+    <label class="zoom-ov-click" id="zoomOverviewClickRow">縮小中（50% 未満）のメモのクリック
+      <select id="zoomOverviewClick">
+        <option value="zoom">拡大する（今までどおり）</option>
+        <option value="edit">編集する（拡大してから書く）</option>
+        <option value="pin">浮かせて固定（♡・書くなどを押せる）</option>
+      </select>
+    </label>
+    <p class="zoom-warn" id="zoomMenuWarn" hidden>50% 未満では全体表示のままです。空いたマスをクリックすると一行で書けます。メモのあるマスはダブルクリックで本文を直せます（「見るだけ」で止められます）。1回のクリックは、上の「メモのクリック」に従います</p>
+    <details class="zoom-edit">
+      <summary>登録を編集</summary>
+      <div class="zoom-slots">
+        <div class="zoom-slot">
+          <span class="zoom-slot-n">1</span>
+          <input type="number" data-zoom-slot="0" min="4" max="150" step="1" inputmode="numeric" aria-label="登録 1（%）"><span class="zoom-slot-pct">%</span>
+          <button type="button" class="btn small" data-zoom-now="0" title="いまの倍率を登録 1 にする">いま</button>
+        </div>
+        <div class="zoom-slot">
+          <span class="zoom-slot-n">2</span>
+          <input type="number" data-zoom-slot="1" min="4" max="150" step="1" inputmode="numeric" aria-label="登録 2（%）"><span class="zoom-slot-pct">%</span>
+          <button type="button" class="btn small" data-zoom-now="1" title="いまの倍率を登録 2 にする">いま</button>
+        </div>
+        <div class="zoom-slot">
+          <span class="zoom-slot-n">3</span>
+          <input type="number" data-zoom-slot="2" min="4" max="150" step="1" inputmode="numeric" aria-label="登録 3（%）"><span class="zoom-slot-pct">%</span>
+          <button type="button" class="btn small" data-zoom-now="2" title="いまの倍率を登録 3 にする">いま</button>
+        </div>
+        <div class="zoom-slot">
+          <span class="zoom-slot-n">4</span>
+          <input type="number" data-zoom-slot="3" min="4" max="150" step="1" inputmode="numeric" aria-label="登録 4（%）"><span class="zoom-slot-pct">%</span>
+          <button type="button" class="btn small" data-zoom-now="3" title="いまの倍率を登録 4 にする">いま</button>
+        </div>
+        <div class="zoom-slot">
+          <span class="zoom-slot-n">5</span>
+          <input type="number" data-zoom-slot="4" min="4" max="150" step="1" inputmode="numeric" aria-label="登録 5（%）"><span class="zoom-slot-pct">%</span>
+          <button type="button" class="btn small" data-zoom-now="4" title="いまの倍率を登録 5 にする">いま</button>
+        </div>
+        <div class="zoom-slot">
+          <span class="zoom-slot-n">6</span>
+          <input type="number" data-zoom-slot="5" min="4" max="150" step="1" inputmode="numeric" aria-label="登録 6（%）"><span class="zoom-slot-pct">%</span>
+          <button type="button" class="btn small" data-zoom-now="5" title="いまの倍率を登録 6 にする">いま</button>
+        </div>
+      </div>
+      <button type="button" class="btn small" id="zoomPresetReset">既定に戻す</button>
+    </details>
+    <div class="zoom-foot">
+      <button type="button" class="btn small" id="zoomMenu100">100% に戻す</button>
+      <button type="button" class="btn small" id="zoomMenuClose">閉じる</button>
+    </div>
+  </div>
+
+  <div class="menu" id="sideItemMenu" popover role="menu" aria-label="メモのメニュー">
+    <button type="button" role="menuitem" data-cmd="copy"><span>コピー（マスに貼り付けられます）</span><kbd>Ctrl+C</kbd></button>
+    <button type="button" role="menuitem" data-cmd="copy-all"><span>すべての周りのメモをコピー</span></button>
+    <button type="button" role="menuitem" data-cmd="go"><span>ハニカムでこのマスへ移動</span></button>
+  </div>
+
+  <!-- 区画（写しの作業台）の紙片のメニュー（右クリック・iPad は紙片の「…」） -->
+  <div class="menu" id="pocketSlipMenu" popover role="menu" aria-label="紙片のメニュー">
+    <button type="button" role="menuitem" data-cmd="edit"><span>本文を直す</span></button>
+    <button type="button" role="menuitem" data-cmd="comment"><span>コメントを書く</span></button>
+    <button type="button" role="menuitem" data-cmd="go"><span>元のマスへ戻る</span></button>
+    <button type="button" role="menuitem" data-cmd="copy-text"><span>本文をコピー</span></button>
+    <button type="button" role="menuitem" data-cmd="place"><span>ハニカムに写しを置く（マスをクリック）</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="remove" class="is-danger"><span>区画から外す</span></button>
+  </div>
+
+  <!-- 紙片の ↩：元のマスへ戻る・ハニカムに写しを置く。元が無いときは「戻る」を押せなくし、理由を下に出す -->
+  <div class="menu" id="originMenu" popover role="menu" aria-label="元のマス">
+    <button type="button" role="menuitem" data-cmd="origin-go"><span>元のマスへ戻る</span></button>
+    <div class="menu-label origin-why" id="originWhy" hidden></div>
+    <button type="button" role="menuitem" data-cmd="origin-place"><span>ハニカムに写しを置く（マスをクリック）</span></button>
+  </div>
+
+  <!-- 紙片の印（置いた写しの数）：置いたマスの一覧と「ハニカムに写しを置く」 -->
+  <div class="menu link-menu" id="slipCopyMenu" popover role="menu" aria-label="置いた写し">
+    <div class="menu-head">この紙片から置いた写し</div>
+    <div class="menu-list" id="slipCopyList"></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="origin-place"><span>ハニカムに写しを置く（マスをクリック）</span></button>
+  </div>
+
+  <!-- 紙片の本文をコピーできなかったとき（iPad を http で開いているときなど）：本文を選べる枠に出す -->
+  <div class="menu pocket-copy-box" id="pocketCopyBox" popover role="dialog" aria-label="紙片の本文">
+    <p class="pocket-copy-hint">コピーできなかったので、ここに出しました。選んでコピーしてください。</p>
+    <textarea id="pocketCopyText" rows="6" readonly spellcheck="false" aria-label="紙片の本文"></textarea>
+    <div class="pocket-copy-acts"><button type="button" class="btn small" id="pocketCopyClose">閉じる</button></div>
+  </div>
+
+  <!-- 紙片を直している途中で、その紙片がほかのウィンドウで外された・ノートが切り替わったとき：書いていた文を「閉じる」まで出しておく枠。
+       外をクリック・Esc では閉じない（popover="manual"）。class "menu" は付けない（開いている間、全体の Esc の判定に当たらないように） -->
+  <div class="pocket-draft-box" id="pocketDraftBox" popover="manual" role="dialog" aria-label="書いていた文">
+    <p class="pocket-copy-hint" id="pocketDraftHint"></p>
+    <textarea id="pocketDraftText" rows="6" spellcheck="false" aria-label="書いていた文"></textarea>
+    <div class="pocket-copy-acts"><button type="button" class="btn small" id="pocketDraftClose">閉じる</button></div>
+  </div>
+
+  <div class="menu" id="layerMenu" popover role="menu" aria-label="層のメニュー">
+    <button type="button" role="menuitem" data-cmd="rename"><span>層の名前を変更</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="delete" class="is-danger"><span>この層を削除…</span></button>
+  </div>
+
+  <div class="menu" id="boardMenu" popover role="menu" aria-label="ノートのメニュー">
+    <button type="button" role="menuitem" data-cmd="rename"><span>名前を変更</span><kbd>F2</kbd></button>
+    <button type="button" role="menuitem" data-cmd="new-child"><span>この中に子ノートを作成</span><kbd>Ctrl+Shift+T</kbd></button>
+    <button type="button" role="menuitem" data-cmd="new"><span>新しいタブ（ノート）</span><kbd>Ctrl+T</kbd></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="up"><span>上へ移動</span></button>
+    <button type="button" role="menuitem" data-cmd="down"><span>下へ移動</span></button>
+    <button type="button" role="menuitem" data-cmd="indent"><span>上のノートの中へ入れる</span></button>
+    <button type="button" role="menuitem" data-cmd="outdent"><span>一つ上の階層へ出す</span></button>
+    <button type="button" role="menuitem" data-cmd="to-tab"><span>タブとして独立させる</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="overview"><span>このノートの全体をサイドバーで見る</span></button>
+    <button type="button" role="menuitem" data-cmd="history"><span>このノートのメモの作成履歴</span><kbd>Ctrl+H</kbd></button>
+    <button type="button" role="menuitem" data-cmd="send-register"><span>このノートを送り先に登録（原点の下へ送れるように）</span></button>
+    <button type="button" role="menuitem" data-cmd="check-links" data-desktop-only><span>このノートのリンク切れを確認</span></button>
+    <button type="button" role="menuitem" data-cmd="export"><span>このノートを書き出す（画像つき .zip）…</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="delete" class="is-danger"><span>このノートを削除…</span></button>
+  </div>
+
+  <!-- タブの中のノート（ツリー）。タブの ⌄ で開く。外側のクリック・Esc で閉じる -->
+  <div class="menu board-tree" id="boardTree" popover="manual" role="dialog" aria-label="タブの中のノート">
+    <div class="menu-head" id="boardTreeHead"></div>
+    <div class="tree-list" id="boardTreeList" role="tree" aria-label="ノートのツリー"></div>
+    <p class="tree-hint">クリックで開く・ドラッグで並べ替え（行の真ん中に落とすとその中へ）</p>
+    <hr>
+    <button type="button" data-cmd="tree-add" data-icon="plus"><span>このタブに子ノートを作成</span></button>
+  </div>
+
+  <dialog class="dialog comment-dialog" id="commentDialog" aria-labelledby="commentTitle">
+    <div class="dialog-body">
+      <header class="dialog-head">
+        <h2 id="commentTitle">コメント</h2>
+        <span class="dialog-sub" id="commentCoord"></span>
+        <button type="button" class="icon-btn" id="commentClose" data-icon="close" title="閉じる（Esc）" aria-label="閉じる"></button>
+      </header>
+      <blockquote class="post-quote" id="commentQuote"></blockquote>
+      <ol class="thread" id="commentThread"></ol>
+      <p class="thread-empty" id="commentEmpty">まだコメントはありません。最初のひとことをどうぞ。</p>
+      <div class="composer">
+        <div class="reply-to" id="commentReplyTo" hidden><span class="reply-to-text"></span><button type="button" class="icon-btn reply-to-cancel" data-icon="close" title="返信をやめる（ふつうのコメントにする）" aria-label="返信をやめる"></button></div>
+        <textarea id="commentInput" rows="3" placeholder="コメントを書く…" aria-label="コメント" spellcheck="false"></textarea>
+        <div class="composer-foot">
+          <span class="composer-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd>／<kbd>Shift</kbd>+<kbd>Enter</kbd> で投稿</span>
+          <span class="counter" id="commentCounter">0 / 280</span>
+          <button type="button" class="btn btn-primary" id="commentPost" disabled>投稿</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="dialog confirm-dialog" id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+    <div class="dialog-body">
+      <h2 id="confirmTitle"></h2>
+      <p id="confirmMessage"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="confirmCancel" data-value="cancel">キャンセル</button>
+        <button type="button" class="btn btn-danger" id="confirmOk" data-value="ok">削除する</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="viewer" id="imageViewer" aria-labelledby="viewerTitle">
+    <!-- 縁と角：つかんで大きさを変える -->
+    <div class="viewer-resize" data-dir="n"></div><div class="viewer-resize" data-dir="s"></div>
+    <div class="viewer-resize" data-dir="e"></div><div class="viewer-resize" data-dir="w"></div>
+    <div class="viewer-resize" data-dir="ne"></div><div class="viewer-resize" data-dir="nw"></div>
+    <div class="viewer-resize" data-dir="se"></div><div class="viewer-resize" data-dir="sw"></div>
+    <header class="viewer-head" id="viewerHead" title="ドラッグで動かす・ダブルクリックで最大化">
+      <button type="button" class="icon-btn" id="viewerPrev" data-icon="left" title="前の画像（←）" aria-label="前の画像"></button>
+      <button type="button" class="icon-btn" id="viewerNext" data-icon="right" title="次の画像（→）" aria-label="次の画像"></button>
+      <h2 class="viewer-title" id="viewerTitle"></h2>
+      <span class="viewer-count" id="viewerCount"></span>
+      <!-- この場所に固定（画像の部分のクリックは後ろのマスへ通る）と、画像の濃さ -->
+      <button type="button" class="icon-btn viewer-pin" id="viewerPin" data-icon="pin" aria-pressed="false" title="この場所に固定する（画像越しに、後ろのマスを選べる・書ける）" aria-label="この場所に固定"></button>
+      <div class="viewer-fade" id="viewerFade" role="group" aria-label="画像の濃さ">
+        <button type="button" data-fade="full" aria-pressed="true" title="そのままの濃さで表示">そのまま</button>
+        <button type="button" data-fade="half" aria-pressed="false" title="半透明（後ろのマスが透けて見える）">半透明</button>
+        <button type="button" data-fade="faint" aria-pressed="false" title="かなり薄く（後ろのマスがよく見える）">薄く</button>
+      </div>
+      <button type="button" class="btn viewer-cover" id="viewerCover" data-icon="star" aria-pressed="false" title="マスの表紙にする"><span>表紙にする</span></button>
+      <!-- 画像とセルの組み合わせ：このメモの下の階層で、画像をハニカムの下に敷く -->
+      <button type="button" class="btn viewer-combine" id="viewerCombine" data-icon="combine" title="この画像をセルと組み合わせる（このメモの下の階層で、画像をハニカムの下に敷き、画像の場所ごとにセルへ書き込める）"><span>セルと組み合わせる</span></button>
+      <button type="button" class="icon-btn" id="viewerOpen" data-icon="external" title="ほかのアプリで開く" aria-label="ほかのアプリで開く"></button>
+      <button type="button" class="icon-btn" id="viewerReveal" data-icon="folder" title="保存されているフォルダを開く" aria-label="フォルダを開く"></button>
+      <button type="button" class="icon-btn" id="viewerSave" data-icon="download" title="名前を付けて保存" aria-label="名前を付けて保存"></button>
+      <button type="button" class="icon-btn" id="viewerDelete" data-icon="trash" title="この画像を外す（Delete）" aria-label="この画像を外す"></button>
+      <button type="button" class="icon-btn" id="viewerMax" data-icon="fit" aria-pressed="false" title="最大化（見出しをダブルクリック）" aria-label="最大化・元に戻す"></button>
+      <button type="button" class="icon-btn" id="viewerClose" data-icon="close" title="閉じる（Esc）" aria-label="閉じる"></button>
+    </header>
+    <div class="viewer-stage" id="viewerStage" tabindex="-1"><img id="viewerImg" alt="" title="クリックで原寸 ⇄ 画面に合わせる"></div>
+    <footer class="viewer-foot">
+      <input type="text" id="viewerCaption" maxlength="1000" placeholder="説明を追加…（Enter で確定）" spellcheck="false" aria-label="画像の説明">
+      <span class="viewer-info" id="viewerInfo"></span>
+    </footer>
+  </dialog>
+  <input type="file" id="cellImageInput" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+
+  <!-- タグ：よく使う6つ（Alt+1〜6）・ほかの登録したタグ・新しいタグ -->
+  <div class="menu tag-menu" id="tagMenu" popover role="dialog" aria-label="タグ">
+    <div class="menu-head" id="tagMenuHead"></div>
+    <div class="menu-label">よく使うタグ（Alt+1〜6） <span class="tag-menu-count" id="tagMenuCount"></span></div>
+    <div class="tag-grid" id="tagMenuTop"></div>
+    <p class="menu-empty" id="tagMenuTopEmpty">まだタグがありません。下に名前を入れて Enter で、登録して付けられます。</p>
+    <div class="menu-label" id="tagMenuRestLabel">ほかのタグ</div>
+    <div class="tag-grid tag-grid-rest" id="tagMenuRest"></div>
+    <div class="tag-menu-input"><input type="text" id="tagMenuInput" placeholder="新しいタグ（Enter で登録して付ける）" maxlength="31" spellcheck="false" aria-label="新しいタグ"><button type="button" class="btn" data-cmd="tag-add">付ける</button></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="tag-settings"><span>タグの登録（名前・アイコン・色）…</span></button>
+  </div>
+
+  <!-- 未配置の棚の項目の右クリック：タグボタンのセット（9つ）でタグを付ける。セットに無いタグは「ほかのタグ」から -->
+  <div class="menu tag-menu shelf-tag-menu" id="shelfTagMenu" popover role="dialog" aria-label="タグボタン" tabindex="-1">
+    <div class="menu-head" id="shelfTagHead"></div>
+    <div class="menu-label">タグボタンのセット（← → で切り替え）</div>
+    <div class="tag-set-chips" id="shelfTagSets"></div>
+    <div class="menu-label" id="shelfTagPadLabel">タグボタン（1〜9 のキーでも） <span class="tag-menu-count" id="shelfTagCount"></span></div>
+    <div class="shelf-tag-pad" id="shelfTagPad"></div>
+    <p class="menu-empty" id="shelfTagEmpty" hidden>まだタグボタンのセットがありません。「＋」か下の「タグボタンのセットを編集…」で、9つのボタンに並べるタグを登録できます。</p>
+    <div class="menu-label" id="shelfTagRestLabel">ほかのタグ</div>
+    <div class="tag-grid tag-grid-rest" id="shelfTagRest"></div>
+    <div class="tag-menu-input"><input type="text" id="shelfTagInput" placeholder="新しいタグ（Enter で登録して付ける）" maxlength="31" spellcheck="false" aria-label="新しいタグ"><button type="button" class="btn" data-cmd="shelf-tag-add">付ける</button></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="tag-sets"><span>タグボタンのセットを編集…</span></button>
+  </div>
+
+  <dialog class="dialog confirm-dialog tag-set-dialog" id="tagSetDialog" aria-labelledby="tagSetDialogTitle">
+    <div class="dialog-body">
+      <h2 id="tagSetDialogTitle">タグボタンのセット</h2>
+      <p>未配置の棚の項目を右クリックすると、選んでいるセットの9つのボタン（1〜9 のキー）でタグを付け外しできます。ハニカムのマス（右クリック →「タグボタン」・選んで <kbd>T</kbd>）では、1〜6 番の6つを使います。セットはいくつでも登録でき、メニューで切り替えます。セットに無いタグは、メニューの「ほかのタグ」から選べます。</p>
+      <div class="tag-set-chips" id="tagSetTabs"></div>
+      <div class="tag-set-edit" id="tagSetEdit">
+        <label class="field">
+          <span class="field-label">セットの名前</span>
+          <input type="text" id="tagSetName" maxlength="20" spellcheck="false" autocomplete="off" placeholder="例：仕事">
+        </label>
+        <div class="field">
+          <span class="field-label">9つのボタンのタグ（空けておいてもかまいません）</span>
+          <div class="tag-set-slots" id="tagSetSlots"></div>
+        </div>
+        <div class="tag-set-tools">
+          <button type="button" class="btn small" id="tagSetFill">よく使うタグで空きを埋める</button>
+          <button type="button" class="btn small" id="tagSetLeft">左へ</button>
+          <button type="button" class="btn small" id="tagSetRight">右へ</button>
+          <span class="dialog-spacer"></span>
+          <button type="button" class="btn small btn-danger" id="tagSetDelete">このセットを削除</button>
+        </div>
+      </div>
+      <p class="field-hint" id="tagSetEmpty" hidden>セットはありません。「＋ セットを追加」で作れます。</p>
+      <datalist id="tagSetOptions"></datalist>
+      <p class="field-error" id="tagSetError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="tagSetCancel">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="tagSetOk">保存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="dialog confirm-dialog tag-dialog" id="tagDialog" aria-labelledby="tagDialogTitle">
+    <div class="dialog-body">
+      <h2 id="tagDialogTitle">タグの登録</h2>
+      <p>マスに付けるタグの名前・アイコン・色。使った回数の多い6つが「よく使うタグ」としてボタン（Alt+1〜6）に出ます。アイコンを付けると、マスにはアイコンだけが出ます。</p>
+      <div class="tag-rows" id="tagDialogList"></div>
+      <p class="field-hint" id="tagDialogEmpty">まだ登録はありません。「追加」で登録できます。</p>
+      <p class="field-error" id="tagDialogError" role="alert" hidden></p>
+      <div class="dialog-actions tag-dialog-actions">
+        <button type="button" class="btn" id="tagDialogAdd" data-icon="plus">追加</button>
+        <span class="dialog-spacer"></span>
+        <button type="button" class="btn" id="tagDialogCancel">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="tagDialogOk">保存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 期限：日付と進み具合 -->
+  <div class="menu due-menu" id="dueMenu" popover role="dialog" aria-label="期限">
+    <div class="menu-head" id="dueMenuHead"></div>
+    <div class="due-menu-row">
+      <span class="due-menu-hex" id="dueMenuHex"></span>
+      <span class="due-menu-text"><span id="dueMenuSub"></span><br><small id="dueMenuProgress"></small></span>
+    </div>
+    <div class="tag-menu-input"><input type="date" id="dueDate" aria-label="期限の日付"></div>
+    <div class="due-quick">
+      <button type="button" class="btn small" data-cmd="today">今日</button>
+      <button type="button" class="btn small" data-cmd="tomorrow">明日</button>
+      <button type="button" class="btn small" data-cmd="days3">3日後</button>
+      <button type="button" class="btn small" data-cmd="week">来週</button>
+    </div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="done"><span>完了にする</span></button>
+    <button type="button" role="menuitem" data-cmd="clear" class="is-danger"><span>期限を外す</span></button>
+  </div>
+
+  <!-- Dendritic Extension：このマスから作る・足す・読む・枝を伸ばす -->
+  <div class="menu" id="dendMenu" popover role="menu" aria-label="Dendritic Extension">
+    <div class="menu-head" id="dendMenuHead"></div>
+    <div class="menu-list" id="dendMenuList"></div>
+  </div>
+
+  <!-- 定型：登録した型の一覧。行を押すとそのマスを基準に貼る。「場所」で影を見ながら貼る、「周り」で下の階層に入って貼る -->
+  <div class="menu tpl-menu" id="tplMenu" popover role="menu" aria-label="定型">
+    <div class="menu-head" id="tplMenuHead"></div>
+    <div class="menu-list tpl-list" id="tplMenuList"></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="register"><span>選んだマスを定型として登録…</span></button>
+    <button type="button" role="menuitem" data-cmd="manage"><span>定型の登録・管理（名前・ピン留め・書き出し）…</span></button>
+  </div>
+
+  <!-- 領域：名前と色 -->
+  <dialog class="dialog confirm-dialog" id="regionDialog" aria-labelledby="regionDialogTitle">
+    <div class="dialog-body">
+      <h2 id="regionDialogTitle">領域に名前を付ける</h2>
+      <p id="regionDialogHint"></p>
+      <label class="field">
+        <span class="field-label">名前</span>
+        <input type="text" id="regionName" maxlength="40" spellcheck="false" autocomplete="off" placeholder="例：仕事の島">
+      </label>
+      <div class="field">
+        <span class="field-label">色</span>
+        <div class="color-swatches" id="regionColors" role="radiogroup" aria-label="色"></div>
+      </div>
+      <p class="field-error" id="regionDialogError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="regionDialogCancel">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="regionDialogOk">付ける</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="menu" id="regionMenu" popover role="menu" aria-label="領域のメニュー">
+    <div class="menu-head" id="regionMenuHead"></div>
+    <button type="button" role="menuitem" data-cmd="fit"><span>この領域が見えるように移動</span></button>
+    <button type="button" role="menuitem" data-cmd="select"><span>この領域のマスを選ぶ</span></button>
+    <button type="button" role="menuitem" data-cmd="search"><span>この領域のメモをサイドバーで検索</span></button>
+    <button type="button" role="menuitem" data-cmd="export"><span>画像・HTML で書き出す・印刷…</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="add"><span>選んでいるマスを足す</span></button>
+    <button type="button" role="menuitem" data-cmd="remove"><span>選んでいるマスを外す</span></button>
+    <button type="button" role="menuitem" data-cmd="rename"><span>名前と色を変更…</span></button>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="delete" class="is-danger"><span>領域を削除…（メモは消えません）</span></button>
+  </div>
+
+  <!-- 関連線：種類・ラベルを変える・解除する -->
+  <div class="menu link-edit-menu" id="linkEditMenu" popover role="dialog" aria-label="関連線">
+    <div class="menu-head" id="linkEditHead"></div>
+    <div class="menu-label">種類（色）</div>
+    <div class="link-kinds" id="linkEditKinds" role="group" aria-label="種類"></div>
+    <div class="tag-menu-input"><input type="text" id="linkEditLabel" placeholder="ラベル（任意・Enter で確定）" maxlength="40" spellcheck="false" aria-label="ラベル"><button type="button" class="btn" data-cmd="label">確定</button></div>
+    <hr>
+    <button type="button" role="menuitem" data-cmd="flip" hidden><span>⇄ 向きを反転</span></button>
+    <button type="button" role="menuitem" data-cmd="go"><span>相手のメモへ移動</span></button>
+    <button type="button" role="menuitem" data-cmd="kinds"><span>関連線の種類を編集…</span></button>
+    <button type="button" role="menuitem" data-cmd="remove" class="is-danger"><span>関連を解除</span></button>
+  </div>
+
+  <dialog class="dialog confirm-dialog tag-dialog" id="linkKindDialog" aria-labelledby="linkKindTitle">
+    <div class="dialog-body">
+      <h2 id="linkKindTitle">関連線の種類</h2>
+      <p>関連付けの線に付ける種類と色。「関連付ける…」のときに選べ、線はその色で描かれます。ラベルは線ごとに付けます。</p>
+      <div class="tag-rows" id="linkKindList"></div>
+      <p class="field-error" id="linkKindError" role="alert" hidden></p>
+      <div class="dialog-actions tag-dialog-actions">
+        <button type="button" class="btn" id="linkKindAdd" data-icon="plus">追加</button>
+        <span class="dialog-spacer"></span>
+        <button type="button" class="btn" id="linkKindCancel">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="linkKindOk">保存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- クイック入力：キーと書く場所 -->
+  <dialog class="dialog confirm-dialog" id="quickDialog" aria-labelledby="quickDialogTitle">
+    <div class="dialog-body">
+      <h2 id="quickDialogTitle">クイック入力の設定</h2>
+      <p>設定したキーを押すと、六角メモが前に出て、空いたマスですぐに書き始められます。</p>
+      <label class="field">
+        <span class="field-label">呼び出すキー（ここでキーを押して記録）</span>
+        <span class="quick-key-row"><input type="text" id="quickKeyInput" readonly placeholder="例：Ctrl+Alt+Q" aria-label="呼び出すキー"><button type="button" class="btn" id="quickKeyReset">既定に戻す</button></span>
+      </label>
+      <p class="field-hint">Ctrl・Alt・Shift のどれかと、文字・数字などの組み合わせ（F キーは単独でも可）。Ctrl+Z のように、ほかの操作と同じキーにすると、そちらは使えなくなります。</p>
+      <div class="field">
+        <span class="field-label">書き込む場所</span>
+        <label class="side-check"><input type="radio" name="quickPlace" value="origin"> 原点（0, 0）の近くの空いたマス</label>
+        <label class="side-check"><input type="radio" name="quickPlace" value="latest"> いちばん新しく作ったマスの近く（その階層）</label>
+        <label class="side-check"><input type="radio" name="quickPlace" value="shelf"> 未配置の棚（場所はあとで決める）</label>
+        <label class="side-check"><input type="radio" name="quickPlace" value="ask"> 呼び出すたびに選ぶ</label>
+      </div>
+      <label class="side-check" data-desktop-only><input type="checkbox" id="quickGlobal"> ほかのアプリを使っているときも、このキーで六角メモを呼び出す</label>
+      <div class="field quick-hide" data-desktop-only>
+        <span class="field-label">しまう（最小化）</span>
+        <label class="side-check"><input type="checkbox" id="quickToggle"> 呼び出したあと、もう一度このキーを押すと最小化する（書いていた本文は保存して、元のアプリに戻る）</label>
+        <span class="field-label quick-hide-label">最小化する別のキー（任意。欄でキーを押して記録・Delete で消す）</span>
+        <span class="quick-key-row"><input type="text" id="quickHideInput" readonly placeholder="なし" aria-label="最小化するキー"><button type="button" class="btn" id="quickHideClear">なしにする</button></span>
+        <p class="field-hint">別のキーを押すと、見えている六角メモのウィンドウ（小窓も）をすべて最小化します。もう一度呼び出すときは、呼び出すキーで。</p>
+      </div>
+      <p class="field-error" id="quickDialogError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="quickDialogCancel">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="quickDialogOk">保存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 定型の登録・管理 -->
+  <dialog class="dialog confirm-dialog tag-dialog tpl-dialog" id="tplDialog" aria-labelledby="tplDialogTitle">
+    <div class="dialog-body">
+      <h2 id="tplDialogTitle">定型の登録（マスの配置の型）</h2>
+      <p>マスの並び・本文・タグ・コメント・期限（日数）・関連線・領域の型です。マスを選んで「定型に登録」で増やし、マスの右クリック →「定型を貼る」から同じ形で貼ります。★ でピン留めした定型は右クリックに必ず出ます（出るのは 6 つまで。残りは使った回数の多い順）。</p>
+      <div class="tag-rows" id="tplList"></div>
+      <p class="field-hint">本文の <code>{{date}}</code>・<code>{{time}}</code>・<code>{{note}}</code>・<code>{{n}}</code> は、貼るときに日付・時刻・ノート名・マスの番号になります。すべてのノートで共通です。</p>
+      <p class="field-error" id="tplError" role="alert" hidden></p>
+      <div class="dialog-actions tag-dialog-actions">
+        <button type="button" class="btn" id="tplExport" data-icon="download">書き出し（JSON）</button>
+        <button type="button" class="btn" id="tplImport" data-icon="file">読み込み（JSON）</button>
+        <span class="dialog-spacer"></span>
+        <button type="button" class="btn" id="tplCancel">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="tplOk">保存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 六角形スクショ：キー・登録サイズ・コメント・トレイ常駐 -->
+  <dialog class="dialog confirm-dialog" id="captureDialog" aria-labelledby="captureDialogTitle">
+    <div class="dialog-body">
+      <h2 id="captureDialogTitle">六角形スクショの設定</h2>
+      <p>ほかのアプリやサイトを見ているときにキーを押すと、マウスの位置を中心に六角形の枠が出ます。ホイール／トラックパッドのピンチで大きさを変え、クリックで切り取り、コメントを付けて「未配置の棚」に送ります。</p>
+      <label class="field">
+        <span class="field-label">呼び出すキー（ここでキーを押して記録）</span>
+        <span class="quick-key-row"><input type="text" id="captureKeyInput" readonly placeholder="例：Ctrl+Alt+H" aria-label="呼び出すキー"><button type="button" class="btn" id="captureKeyReset">既定に戻す</button></span>
+      </label>
+      <div class="field">
+        <span class="field-label">登録した大きさ（六角形の半径。枠を出している間は 1〜9 のキーやボタンで選べ、ホイールで自由に変えられます）</span>
+        <div class="capture-sizes" id="captureSizes"></div>
+        <span class="quick-key-row"><input type="number" id="captureSizeInput" min="40" max="2000" step="10" placeholder="半径（px）を追加" aria-label="大きさを追加"><button type="button" class="btn" id="captureSizeAdd">追加</button></span>
+      </div>
+      <label class="side-check"><input type="checkbox" id="captureComment"> 切り取ったあとにコメントを書いてから送る（外すと、クリックですぐ送ります）</label>
+      <label class="side-check"><input type="checkbox" id="trayEnabled"> ウィンドウをすべて閉じてもトレイ（通知領域）に常駐する（キーが効き続けます）</label>
+      <p class="field-hint">最後に使った大きさを覚えます。枠の中の「このサイズを登録」でも登録できます。macOS では初回に「画面収録」の許可を求められます。撮った画像はこのパソコンの中にだけ保存されます。</p>
+      <p class="field-error" id="captureDialogError" role="alert" hidden></p>
+      <div class="dialog-actions tag-dialog-actions">
+        <button type="button" class="btn" id="captureNow" data-icon="select">今すぐ撮る</button>
+        <span class="dialog-spacer"></span>
+        <button type="button" class="btn" id="captureDialogCancel">キャンセル</button>
+        <button type="button" class="btn btn-primary" id="captureDialogOk">保存</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="dialog confirm-dialog" id="quickAskDialog" aria-labelledby="quickAskTitle">
+    <div class="dialog-body">
+      <h2 id="quickAskTitle">どこに書きますか？</h2>
+      <div class="quick-ask-choices">
+        <button type="button" class="btn btn-primary" data-place="origin">原点の近く</button>
+        <button type="button" class="btn btn-primary" data-place="latest">最新のマスの近く</button>
+        <button type="button" class="btn" data-place="shelf">棚（あとで置く）</button>
+      </div>
+      <label class="side-check"><input type="checkbox" id="quickAskRemember"> 次回からは聞かずに、この場所にする</label>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="quickAskCancel">キャンセル</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- AI でタグ付け：依頼ファイルの書き出しと、結果の読み込み -->
+  <dialog class="dialog confirm-dialog ai-tag-dialog" id="aiTagDialog" aria-labelledby="aiTagTitle">
+    <div class="dialog-body">
+      <h2 id="aiTagTitle">AI でタグ付け</h2>
+      <p>このノートのすべてのメモ（下の階層も含む）を1つのファイルに書き出し、Claude や Grok などの AI に渡してタグを付けてもらいます。返ってきた結果（JSON）を読み込むと、それぞれのマスにタグが付きます。今あるタグは残り、足されるだけです。</p>
+      <h3 class="ai-step">1. 依頼を書き出す</h3>
+      <div class="dialog-actions ai-actions">
+        <button type="button" class="btn" id="aiTagExport" data-icon="download">依頼ファイルを書き出す（JSON）</button>
+        <button type="button" class="btn" id="aiTagCopyPrompt" data-icon="copy">依頼の文章をコピー</button>
+      </div>
+      <p class="field-hint">書き出したファイルを AI に添付し、コピーした文章を貼り付けて送ります。登録してあるタグの一覧も入っているので、AI はなるべくその中から選びます。</p>
+      <h3 class="ai-step">2. 結果を読み込む</h3>
+      <div class="dialog-actions ai-actions">
+        <button type="button" class="btn" id="aiTagImport" data-icon="file">結果のファイルを読み込む…</button>
+      </div>
+      <textarea id="aiTagPaste" rows="4" placeholder="または、AI の返事（JSON）をここに貼り付け" spellcheck="false" aria-label="AI の返事"></textarea>
+      <p class="field-hint ai-preview" id="aiTagPreview" hidden></p>
+      <p class="field-error" id="aiTagError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="aiTagClose">閉じる</button>
+        <button type="button" class="btn btn-primary" id="aiTagApply" disabled>タグを付ける</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="hex.js"></script>
+  <script src="urls.js"></script>
+  <script src="ribbon.js"></script>
+  <script src="send.js"></script>
+  <script src="pocket.js"></script>
+  <script src="voice.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

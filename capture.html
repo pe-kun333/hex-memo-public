@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src blob: data:">
+  <title>六角形スクショ</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: #e7ecf2; font: 13px/1.5 system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; user-select: none; }
+    body { cursor: none; }
+    body.is-locked, body.is-sending { cursor: default; }
+    #frame { position: absolute; left: 0; top: 0; width: 100%; height: 100%; filter: brightness(.42) saturate(.85); }
+    #hex { position: absolute; left: 0; top: 0; will-change: transform; pointer-events: none; }
+    body:not(.is-ready) #hex, body:not(.is-ready) .hud { visibility: hidden; }
+    .hud { position: absolute; left: 50%; bottom: 28px; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 8px 14px; transform: translateX(-50%); border: 1px solid rgba(29, 155, 240, .55); border-radius: 999px; background: rgba(14, 19, 26, .94); box-shadow: 0 10px 28px rgba(0, 0, 0, .5); cursor: default; }
+    .hud .readout { font-variant-numeric: tabular-nums; font-weight: 700; color: #fff; white-space: nowrap; }
+    .hud .hint { color: #8b98a5; white-space: nowrap; }
+    .sizes { display: flex; gap: 4px; }
+    .size, .btn { height: 26px; padding: 0 10px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; background: rgba(255, 255, 255, .05); color: #e7ecf2; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+    .size:hover, .btn:hover { background: rgba(255, 255, 255, .12); }
+    .size.is-on { border-color: #1d9bf0; background: rgba(29, 155, 240, .22); color: #fff; }
+    .btn.primary { border-color: #1d9bf0; background: #1d9bf0; color: #fff; font-weight: 700; }
+    .btn.primary:hover { background: #1a8cd8; }
+    .comment-box { position: absolute; left: 0; top: 0; width: 360px; padding: 10px; border: 1px solid rgba(29, 155, 240, .55); border-radius: 14px; background: rgba(14, 19, 26, .97); box-shadow: 0 16px 40px rgba(0, 0, 0, .55); cursor: default; }
+    .comment-box[hidden] { display: none; }
+    .comment-box textarea { display: block; width: 100%; height: 72px; box-sizing: border-box; padding: 8px 10px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 10px; background: #0a0d12; color: #e7ecf2; font: inherit; resize: none; outline: none; }
+    .comment-box textarea:focus { border-color: #1d9bf0; }
+    .comment-box .row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    .comment-box .row .spacer { flex: 1; }
+    .comment-box .hint { margin: 6px 0 0; color: #8b98a5; font-size: 11.5px; }
+    body.is-sending .comment-box, body.is-sending .hud { opacity: .5; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <canvas id="frame"></canvas>
+  <canvas id="hex"></canvas>
+  <div class="hud" id="hud">
+    <span class="readout" id="readout"></span>
+    <span class="sizes" id="sizes"></span>
+    <button type="button" class="btn" id="saveSize" title="いまの大きさを登録サイズに加える（S）">このサイズを登録</button>
+    <span class="hint">ホイール／ピンチで大きさ・クリックで撮る・Esc でやめる</span>
+  </div>
+  <div class="comment-box" id="commentBox" hidden>
+    <textarea id="comment" placeholder="コメント（任意）。Enter で棚へ送る・Shift+Enter で改行" spellcheck="false"></textarea>
+    <div class="row">
+      <button type="button" class="btn primary" id="send">棚へ送る（Enter）</button>
+      <button type="button" class="btn" id="sendPlain">コメント無しで送る</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="back" title="枠の位置と大きさを選び直す（Esc）">選び直す</button>
+      <button type="button" class="btn" id="cancel">やめる</button>
+    </div>
+    <p class="hint">送った画像は「未配置の棚」に入ります（六角メモの右上の「棚」）。</p>
+  </div>
+  <script src="capture.js"></script>
+</body>
+</html>
